@@ -1,23 +1,23 @@
-# ── Java / Spring Boot ───────────────────────────────────────
+﻿# Java / Spring Boot
 homebase-backend/target/
-homebase-backend/.mvn/wrapper/maven-wrapper.jar
-homebase-backend/*.class
+*.class
 
-# ── Node / React ─────────────────────────────────────────────
+# Node / React
+node_modules/
 homebase-frontend/node_modules/
 homebase-frontend/dist/
 homebase-frontend/.vite/
 
-# ── Environment & secrets ────────────────────────────────────
+# Secrets
 .env
 .env.local
 *.env
 
-# ── IDE ──────────────────────────────────────────────────────
+# IDE
 .idea/
 .vscode/
 *.iml
 
-# ── OS ───────────────────────────────────────────────────────
+# OS
 .DS_Store
 Thumbs.db

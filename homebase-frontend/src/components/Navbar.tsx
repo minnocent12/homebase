@@ -1,6 +1,12 @@
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
+const roleBadgeStyle: Record<string, string> = {
+  ADMIN:     'bg-red-100 text-red-700',
+  MANAGER:   'bg-purple-100 text-purple-700',
+  ASSOCIATE: 'bg-blue-100 text-blue-700',
+};
+
 const Navbar = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -34,12 +40,16 @@ const Navbar = () => {
         </div>
       </div>
 
-      {/* User info + logout */}
-      <div className="flex items-center gap-4">
+      {/* User info + role badge + logout */}
+      <div className="flex items-center gap-3">
         {user && (
-          <div className="text-right hidden sm:block">
-            <p className="text-sm font-medium text-gray-900">{user.fullName}</p>
-            <p className="text-xs text-gray-500">{user.role}</p>
+          <div className="flex items-center gap-2">
+            <div className="text-right hidden sm:block">
+              <p className="text-sm font-medium text-gray-900">{user.fullName}</p>
+            </div>
+            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${roleBadgeStyle[user.role] ?? 'bg-gray-100 text-gray-600'}`}>
+              {user.role}
+            </span>
           </div>
         )}
         <button

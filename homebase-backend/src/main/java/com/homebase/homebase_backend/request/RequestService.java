@@ -5,9 +5,11 @@ import com.homebase.homebase_backend.request.dto.RequestResponseDto;
 import com.homebase.homebase_backend.request.dto.UpdateRequestDto;
 import com.homebase.homebase_backend.user.User;
 import com.homebase.homebase_backend.user.UserRepository;
+import com.homebase.homebase_backend.user.UserRole;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,11 +37,17 @@ public class RequestService {
         return RequestResponseDto.from(requestRepository.save(request));
     }
 
-    // ── Get All (paginated + optional filters) ───────────────
+    // ── Get All (RBAC aware) ─────────────────────────────────
     @Transactional(readOnly = true)
     public Page<RequestResponseDto> getAll(
             String status, String priority, String category,
-            String keyword, Pageable pageable) {
+            String keyword, Pageable pageable, User currentUser) {
+
+        // ASSOCIATEs can only see their own requests
+        if (currentUser.getRole() == UserRole.ASSOCIATE) {
+            return requestRepository.findByCreatedById(currentUser.getId(), pageable)
+                    .map(RequestResponseDto::from);
+        }
 
         if (keyword != null && !keyword.isBlank()) {
             return requestRepository.searchByKeyword(keyword, pageable)
@@ -64,16 +72,23 @@ public class RequestService {
         return requestRepository.findAll(pageable).map(RequestResponseDto::from);
     }
 
-    // ── Get By ID ────────────────────────────────────────────
+    // ── Get By ID (RBAC aware) ───────────────────────────────
     @Transactional(readOnly = true)
-    public RequestResponseDto getById(UUID id) {
-        return RequestResponseDto.from(findOrThrow(id));
+    public RequestResponseDto getById(UUID id, User currentUser) {
+        Request request = findOrThrow(id);
+        enforceViewAccess(request, currentUser);
+        return RequestResponseDto.from(request);
     }
 
-    // ── Update ───────────────────────────────────────────────
+    // ── Update (MANAGER + ADMIN only) ────────────────────────
     @Transactional
-    public RequestResponseDto update(UUID id, UpdateRequestDto dto) {
+    public RequestResponseDto update(UUID id, UpdateRequestDto dto, User currentUser) {
         Request request = findOrThrow(id);
+
+        // ASSOCIATEs cannot update requests
+        if (currentUser.getRole() == UserRole.ASSOCIATE) {
+            throw new AccessDeniedException("Associates cannot update requests");
+        }
 
         if (dto.getTitle() != null)       request.setTitle(dto.getTitle());
         if (dto.getDescription() != null) request.setDescription(dto.getDescription());
@@ -90,8 +105,35 @@ public class RequestService {
         return RequestResponseDto.from(requestRepository.save(request));
     }
 
-    // ── Dashboard summary counts ─────────────────────────────
-    public DashboardSummary getSummary() {
+    // ── Delete (ADMIN only) ──────────────────────────────────
+    @Transactional
+    public void delete(UUID id, User currentUser) {
+        if (currentUser.getRole() != UserRole.ADMIN) {
+            throw new AccessDeniedException("Only admins can delete requests");
+        }
+        Request request = findOrThrow(id);
+        requestRepository.delete(request);
+    }
+
+    // ── Dashboard summary ────────────────────────────────────
+    public DashboardSummary getSummary(User currentUser) {
+        if (currentUser.getRole() == UserRole.ASSOCIATE) {
+            // ASSOCIATEs see only their own counts
+            long open = requestRepository.findByCreatedById(currentUser.getId(),
+                    Pageable.unpaged()).stream()
+                    .filter(r -> r.getStatus() == RequestStatus.OPEN).count();
+            long inProgress = requestRepository.findByCreatedById(currentUser.getId(),
+                    Pageable.unpaged()).stream()
+                    .filter(r -> r.getStatus() == RequestStatus.IN_PROGRESS).count();
+            long resolved = requestRepository.findByCreatedById(currentUser.getId(),
+                    Pageable.unpaged()).stream()
+                    .filter(r -> r.getStatus() == RequestStatus.RESOLVED).count();
+            return DashboardSummary.builder()
+                    .open(open).inProgress(inProgress)
+                    .resolved(resolved).total(open + inProgress + resolved)
+                    .build();
+        }
+
         return DashboardSummary.builder()
                 .open(requestRepository.countByStatus(RequestStatus.OPEN))
                 .inProgress(requestRepository.countByStatus(RequestStatus.IN_PROGRESS))
@@ -104,6 +146,13 @@ public class RequestService {
     private Request findOrThrow(UUID id) {
         return requestRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Request not found: " + id));
+    }
+
+    private void enforceViewAccess(Request request, User currentUser) {
+        if (currentUser.getRole() == UserRole.ASSOCIATE &&
+            !request.getCreatedBy().getId().equals(currentUser.getId())) {
+            throw new AccessDeniedException("You can only view your own requests");
+        }
     }
 
     private RequestPriority parsePriority(String val) {

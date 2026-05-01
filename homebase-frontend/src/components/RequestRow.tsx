@@ -1,5 +1,6 @@
 import type { Request, RequestStatus } from '../types';
 import PriorityBadge from './PriorityBadge';
+import { useAuth } from '../context/AuthContext';
 
 interface Props {
   request: Request;
@@ -13,6 +14,9 @@ const statusStyles: Record<RequestStatus, string> = {
 };
 
 const RequestRow = ({ request, onStatusChange }: Props) => {
+  const { user } = useAuth();
+  const canUpdate = user?.role === 'MANAGER' || user?.role === 'ADMIN';
+
   const date = new Date(request.createdAt).toLocaleDateString('en-US', {
     month: 'short', day: 'numeric', year: 'numeric',
   });
@@ -49,17 +53,21 @@ const RequestRow = ({ request, onStatusChange }: Props) => {
       {/* Date */}
       <td className="py-3 px-4 text-xs text-gray-500">{date}</td>
 
-      {/* Status update dropdown */}
+      {/* Status update — MANAGER/ADMIN only */}
       <td className="py-3 px-4">
-        <select
-          value={request.status}
-          onChange={e => onStatusChange(request.id, e.target.value as RequestStatus)}
-          className="text-xs border border-gray-200 rounded-md px-2 py-1 bg-white text-gray-700 cursor-pointer hover:border-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-        >
-          <option value="OPEN">Open</option>
-          <option value="IN_PROGRESS">In Progress</option>
-          <option value="RESOLVED">Resolved</option>
-        </select>
+        {canUpdate ? (
+          <select
+            value={request.status}
+            onChange={e => onStatusChange(request.id, e.target.value as RequestStatus)}
+            className="text-xs border border-gray-200 rounded-md px-2 py-1 bg-white text-gray-700 cursor-pointer hover:border-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          >
+            <option value="OPEN">Open</option>
+            <option value="IN_PROGRESS">In Progress</option>
+            <option value="RESOLVED">Resolved</option>
+          </select>
+        ) : (
+          <span className="text-xs text-gray-400 italic">View only</span>
+        )}
       </td>
 
     </tr>

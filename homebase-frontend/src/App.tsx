@@ -6,6 +6,7 @@ import DashboardPage     from './pages/DashboardPage';
 import RequestListPage   from './pages/RequestListPage';
 import CreateRequestPage from './pages/CreateRequestPage';
 import RequestDetailPage from './pages/RequestDetailPage';
+import AnalyticsPage     from './pages/AnalyticsPage';
 
 // ── Protected route wrapper ───────────────────────────────────
 const Protected = ({ children }: { children: ReactNode }) => {
@@ -33,6 +34,9 @@ const App = () => (
         } />
         <Route path="/requests/:id" element={
           <Protected><RequestDetailPage /></Protected>
+        } />
+        <Route path="/analytics" element={
+          <Protected><AnalyticsPage /></Protected>
         } />
 
         {/* Default redirect */}

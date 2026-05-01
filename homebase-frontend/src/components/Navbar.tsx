@@ -16,6 +16,8 @@ const Navbar = () => {
     navigate('/login');
   };
 
+  const canViewAnalytics = user?.role === 'MANAGER' || user?.role === 'ADMIN';
+
   return (
     <nav className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between sticky top-0 z-10 shadow-sm">
 
@@ -37,6 +39,12 @@ const Navbar = () => {
             className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
             New Request
           </Link>
+          {canViewAnalytics && (
+            <Link to="/analytics"
+              className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
+              Analytics
+            </Link>
+          )}
         </div>
       </div>
 

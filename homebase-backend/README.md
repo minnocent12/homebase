@@ -1,175 +1,204 @@
-# HomeBase — Internal Request & Ops System
+# HomeBase — Backend API
 
-> A full-stack Store Support Center portal that streamlines operational request management between store associates and the SSC team.
-
-![HomeBase Dashboard](https://i.imgur.com/placeholder.png)
+Spring Boot REST API for the HomeBase Store Support Center Portal.
 
 ---
 
 ## Overview
 
-HomeBase is an internal web application that allows store associates to submit operational requests (IT issues, HR concerns, facilities problems, supply needs), and enables managers and admins to triage, assign, and resolve them — all in one place.
-
-Built as a showcase project for the **Home Depot Software Engineering Internship**.
+This is the backend service for HomeBase. It provides a secure JWT-authenticated REST API that manages users and operational requests. Built with Spring Boot 3.3, Spring Security, Hibernate/JPA, and PostgreSQL, with Flyway handling all schema migrations.
 
 ---
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Backend | Java 17, Spring Boot 3.3, Spring Security |
-| Auth | JWT (access + refresh tokens) |
-| Database | PostgreSQL 17, Flyway migrations |
-| ORM | Hibernate / Spring Data JPA |
-| Frontend | React 18, TypeScript, Vite, Tailwind CSS |
-| HTTP Client | Axios |
-| Routing | React Router v6 |
-| DevOps | Docker, GitHub Actions CI/CD (planned) |
-| Cloud | AWS ECS + RDS (planned) |
-
----
-
-## Features
-
-### ✅ Complete
-- JWT authentication — register, login, token-based security
-- Role-based users — ASSOCIATE, MANAGER, ADMIN
-- Create operational requests with title, description, priority, category
-- List requests with pagination, sorting, search and filter
-- Update request status inline (OPEN → IN_PROGRESS → RESOLVED)
-- Dashboard with live summary cards (Open, In Progress, Resolved, Total)
-- Priority badges — CRITICAL, HIGH, MEDIUM, LOW with color coding
-- Protected routes — unauthenticated users redirected to login
-- Persistent auth — session survives page refresh via localStorage
-- CORS configured for local development
-
-### 🔜 Coming Soon
-- Role-based access control (RBAC)
-- Comments and activity log per request
-- Analytics charts — resolution time, trends, category breakdown
-- Email notification simulation
-- Docker Compose full-stack setup
-- GitHub Actions CI/CD pipeline
-- AWS ECS + RDS deployment
-
----
-
-## Screenshots
-
-| Login | Dashboard |
-|---|---|
-| Clean login screen with HomeBase branding | Summary cards + recent requests |
-
-| Request List | Create Request |
-|---|---|
-| Paginated table with search, filter, inline status update | Form with priority and category selectors |
+| Component | Technology | Version |
+|---|---|---|
+| Language | Java | 17 |
+| Framework | Spring Boot | 3.3.0 |
+| Security | Spring Security + JWT | jjwt 0.12.5 |
+| ORM | Hibernate / Spring Data JPA | via Spring Boot |
+| Database | PostgreSQL | 17+ |
+| Schema migrations | Flyway | via Spring Boot |
+| Build | Maven | 3.9+ |
 
 ---
 
 ## Project Structure
 
 ```
-homebase/
-├── homebase-backend/               # Spring Boot API
-│   ├── src/main/java/com/homebase/
-│   │   ├── auth/                   # JWT auth, register, login
-│   │   │   ├── dto/                # Request/response DTOs
-│   │   │   └── jwt/                # JwtUtil, JwtAuthFilter
-│   │   ├── config/                 # SecurityConfig, CorsConfig
-│   │   ├── request/                # Request entity, service, controller
-│   │   │   └── dto/
-│   │   └── user/                   # User entity, repository
-│   └── src/main/resources/
-│       ├── application.yaml        # Multi-profile config (dev/prod)
-│       └── db/migration/           # Flyway SQL migrations (V1–V6)
-│
-└── homebase-frontend/              # React + TypeScript app
-    └── src/
-        ├── api/                    # Axios instance + API functions
-        ├── components/             # Navbar, PriorityBadge, SummaryCard, RequestRow
-        ├── context/                # AuthContext (global auth state)
-        ├── pages/                  # Login, Dashboard, RequestList, CreateRequest
-        └── types/                  # TypeScript interfaces and types
+src/main/java/com/homebase/
+├── auth/
+│   ├── AuthController.java         # POST /api/auth/register, /api/auth/login
+│   ├── AuthService.java            # Registration, login, token logic
+│   ├── dto/
+│   │   ├── RegisterRequest.java
+│   │   ├── LoginRequest.java
+│   │   └── AuthResponse.java       # Returns accessToken, refreshToken, user info
+│   └── jwt/
+│       ├── JwtUtil.java            # Token generation and validation
+│       └── JwtAuthFilter.java      # Servlet filter — validates Bearer tokens
+├── config/
+│   ├── SecurityConfig.java         # Spring Security filter chain, public routes
+│   └── CorsConfig.java             # CORS — allows localhost:5173 in dev
+├── request/
+│   ├── Request.java                # JPA entity
+│   ├── RequestRepository.java      # JPA repository with Specification queries
+│   ├── RequestService.java         # Business logic — create, list, update, summary
+│   ├── RequestController.java      # POST/GET/PUT /api/requests
+│   └── dto/
+│       ├── CreateRequestDto.java
+│       ├── UpdateRequestDto.java
+│       ├── RequestResponseDto.java
+│       └── RequestSummaryDto.java
+└── user/
+    ├── User.java                   # JPA entity — id, fullName, email, passwordHash, role
+    └── UserRepository.java
+
+src/main/resources/
+├── application.yaml                # Base config + dev/prod profiles
+└── db/migration/
+    ├── V1__init_schema.sql
+    ├── V2__add_comments.sql
+    ├── V3__add_notifications.sql
+    ├── V4__convert_role_to_varchar.sql
+    ├── V5__placeholder.sql
+    └── V6__restore_request_enums_as_varchar.sql
 ```
-
----
-
-## Getting Started
-
-### Prerequisites
-- Java 17+
-- Maven 3.9+
-- PostgreSQL 17+
-- Node.js 18+
-
-### Backend Setup
-
-**1. Clone the repository**
-```bash
-git clone https://github.com/minnocent12/homebase.git
-cd homebase/homebase-backend
-```
-
-**2. Create the database**
-```bash
-psql -U postgres -c "CREATE DATABASE homebase_dev;"
-```
-
-**3. Set environment variable**
-```bash
-# Windows
-$env:JWT_SECRET = "your-secret-key-min-32-characters-long"
-
-# Mac/Linux
-export JWT_SECRET="your-secret-key-min-32-characters-long"
-```
-
-**4. Run the backend**
-```bash
-./mvnw spring-boot:run
-```
-API available at `http://localhost:8080`
-
-### Frontend Setup
-
-```bash
-cd homebase/homebase-frontend
-npm install
-npm run dev
-```
-App available at `http://localhost:5173`
 
 ---
 
 ## API Endpoints
 
-### Auth
-| Method | Endpoint | Description | Auth |
-|---|---|---|---|
-| POST | `/api/auth/register` | Register new user | Public |
-| POST | `/api/auth/login` | Login and get tokens | Public |
+### Auth — Public
 
-### Requests
-| Method | Endpoint | Description | Auth |
+| Method | Endpoint | Body | Response |
 |---|---|---|---|
-| POST | `/api/requests` | Create a request | Required |
-| GET | `/api/requests` | List all requests (paginated) | Required |
-| GET | `/api/requests/{id}` | Get single request | Required |
-| PUT | `/api/requests/{id}` | Update request | Required |
-| GET | `/api/requests/summary` | Dashboard counts | Required |
+| POST | `/api/auth/register` | `fullName`, `email`, `password`, `role` | `accessToken`, `refreshToken`, user info |
+| POST | `/api/auth/login` | `email`, `password` | `accessToken`, `refreshToken`, user info |
 
-### Query Parameters (GET /api/requests)
-| Param | Description | Example |
+### Requests — Requires `Authorization: Bearer <token>`
+
+| Method | Endpoint | Description |
 |---|---|---|
-| `status` | Filter by status | `OPEN`, `IN_PROGRESS`, `RESOLVED` |
-| `priority` | Filter by priority | `LOW`, `MEDIUM`, `HIGH`, `CRITICAL` |
-| `category` | Filter by category | `IT`, `HR`, `FACILITIES`, `SUPPLY`, `OTHER` |
-| `keyword` | Search title/description | `printer` |
-| `page` | Page number (0-based) | `0` |
-| `size` | Page size | `10` |
-| `sortBy` | Sort field | `createdAt` |
-| `sortDir` | Sort direction | `asc`, `desc` |
+| POST | `/api/requests` | Create a new request |
+| GET | `/api/requests` | List requests with pagination and filters |
+| GET | `/api/requests/{id}` | Get a single request by ID |
+| PUT | `/api/requests/{id}` | Update title, description, status, priority, category |
+| GET | `/api/requests/summary` | Returns `{ open, inProgress, resolved, total }` |
+
+### Query Parameters — `GET /api/requests`
+
+| Parameter | Type | Description |
+|---|---|---|
+| `status` | enum | `OPEN` \| `IN_PROGRESS` \| `RESOLVED` |
+| `priority` | enum | `LOW` \| `MEDIUM` \| `HIGH` \| `CRITICAL` |
+| `category` | enum | `IT` \| `HR` \| `FACILITIES` \| `SUPPLY` \| `OTHER` |
+| `keyword` | string | Full-text search in title and description |
+| `page` | int | Page number, 0-based (default: `0`) |
+| `size` | int | Page size (default: `10`) |
+| `sortBy` | string | Sort field — `createdAt`, `priority`, `status` |
+| `sortDir` | string | `asc` \| `desc` |
+
+---
+
+## Database Schema
+
+PostgreSQL 17+ — Flyway manages all migrations.
+
+### `users`
+| Column | Type | Notes |
+|---|---|---|
+| `id` | UUID | Primary key |
+| `full_name` | VARCHAR | |
+| `email` | VARCHAR | Unique, indexed |
+| `password_hash` | VARCHAR | bcrypt |
+| `role` | VARCHAR | `ASSOCIATE`, `MANAGER`, `ADMIN` |
+| `created_at` | TIMESTAMP | |
+
+### `requests`
+| Column | Type | Notes |
+|---|---|---|
+| `id` | UUID | Primary key |
+| `title` | VARCHAR | |
+| `description` | TEXT | |
+| `status` | VARCHAR | `OPEN`, `IN_PROGRESS`, `RESOLVED` |
+| `priority` | VARCHAR | `LOW`, `MEDIUM`, `HIGH`, `CRITICAL` |
+| `category` | VARCHAR | `IT`, `HR`, `FACILITIES`, `SUPPLY`, `OTHER` |
+| `created_by` | UUID | FK → `users.id` |
+| `assigned_to` | UUID | FK → `users.id`, nullable |
+| `created_at` | TIMESTAMP | |
+| `updated_at` | TIMESTAMP | Auto-updated by DB trigger |
+
+### `status_history`
+| Column | Type | Notes |
+|---|---|---|
+| `id` | UUID | Primary key |
+| `request_id` | UUID | FK → `requests.id` |
+| `changed_by` | UUID | FK → `users.id` |
+| `old_status` | VARCHAR | |
+| `new_status` | VARCHAR | |
+| `changed_at` | TIMESTAMP | |
+
+### Migrations
+
+| Version | Description |
+|---|---|
+| V1 | Initial schema — `users`, `requests`, `status_history` |
+| V2 | Add `comments` table |
+| V3 | Add `notifications` table |
+| V4 | Convert `role` column to VARCHAR |
+| V5 | Placeholder |
+| V6 | Restore request enum columns as VARCHAR |
+
+---
+
+## Security Design
+
+- **JWT access tokens** — 15-minute expiry, validated on every request via `JwtAuthFilter`
+- **JWT refresh tokens** — 7-day expiry, stored in `AuthResponse` for the client to use
+- **Passwords** — hashed with bcrypt via Spring Security's `PasswordEncoder`
+- **Public routes** — `POST /api/auth/register` and `POST /api/auth/login` are unauthenticated; all others require a valid Bearer token
+- **CORS** — `localhost:5173` allowed in dev profile; tightened in prod
+
+---
+
+## Setup
+
+### Prerequisites
+- Java 17+
+- Maven 3.9+
+- PostgreSQL 17+ running locally
+
+### 1. Create the database
+
+```bash
+psql -U postgres -c "CREATE DATABASE homebase_dev;"
+```
+
+### 2. Set the JWT secret
+
+```bash
+# Windows (PowerShell)
+$env:JWT_SECRET = "your-secret-key-at-least-32-characters-long"
+
+# macOS / Linux
+export JWT_SECRET="your-secret-key-at-least-32-characters-long"
+```
+
+### 3. Run the application
+
+```bash
+./mvnw spring-boot:run
+```
+
+API is available at `http://localhost:8080`. Flyway runs migrations automatically on startup.
+
+### Running tests
+
+```bash
+./mvnw test
+```
 
 ---
 
@@ -177,25 +206,22 @@ App available at `http://localhost:5173`
 
 | Variable | Description | Required |
 |---|---|---|
-| `JWT_SECRET` | Secret key for signing JWT tokens (min 32 chars) | Yes |
-| `DATABASE_URL` | PostgreSQL connection URL (prod only) | Prod only |
-| `DATABASE_USER` | Database username (prod only) | Prod only |
-| `DATABASE_PASSWORD` | Database password (prod only) | Prod only |
+| `JWT_SECRET` | Signing key for JWT tokens — minimum 32 characters | Always |
+| `DATABASE_URL` | PostgreSQL JDBC URL (e.g. `jdbc:postgresql://host:5432/db`) | Production |
+| `DATABASE_USER` | Database username | Production |
+| `DATABASE_PASSWORD` | Database password | Production |
+
+> Dev profile uses `localhost:5432/homebase_dev` with credentials from `application-dev.yml`. Production reads from environment variables only.
 
 ---
 
-## Database Migrations
+## Configuration Profiles
 
-Flyway handles all schema changes automatically on startup.
-
-| Version | Description |
-|---|---|
-| V1 | Initial schema — users, requests, status_history |
-| V2 | Add comments table |
-| V3 | Add notifications table |
-| V4 | Convert role column to VARCHAR |
-| V5 | No-op placeholder |
-| V6 | Restore request enum columns as VARCHAR |
+| Profile | When used | DB config |
+|---|---|---|
+| `dev` (default) | Local development | `localhost:5432/homebase_dev` |
+| `prod` | Deployed environment | Reads `DATABASE_URL`, `DATABASE_USER`, `DATABASE_PASSWORD` from env |
+| `test` | Test runs | Isolated test database |
 
 ---
 

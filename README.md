@@ -1,57 +1,14 @@
-# HomeBase — Internal Request & Ops System
+# HomeBase — Store Support Center Portal
 
-> A full-stack Store Support Center portal that streamlines operational request management between store associates and the SSC team.
-
-![HomeBase Dashboard](https://i.imgur.com/placeholder.png)
+> A full-stack internal web application that streamlines operational request management between store associates and the SSC team.
 
 ---
 
 ## Overview
 
-HomeBase is an internal web application that allows store associates to submit operational requests (IT issues, HR concerns, facilities problems, supply needs), and enables managers and admins to triage, assign, and resolve them — all in one place.
+HomeBase lets store associates submit operational requests (IT issues, HR concerns, facilities problems, supply needs), and gives managers and admins a unified place to triage, assign, and resolve them.
 
 Built as a showcase project for the **Home Depot Software Engineering Internship**.
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Backend | Java 17, Spring Boot 3.3, Spring Security |
-| Auth | JWT (access + refresh tokens) |
-| Database | PostgreSQL 17, Flyway migrations |
-| ORM | Hibernate / Spring Data JPA |
-| Frontend | React 18, TypeScript, Vite, Tailwind CSS |
-| HTTP Client | Axios |
-| Routing | React Router v6 |
-| DevOps | Docker, GitHub Actions CI/CD (planned) |
-| Cloud | AWS ECS + RDS (planned) |
-
----
-
-## Features
-
-### ✅ Complete
-- JWT authentication — register, login, token-based security
-- Role-based users — ASSOCIATE, MANAGER, ADMIN
-- Create operational requests with title, description, priority, category
-- List requests with pagination, sorting, search and filter
-- Update request status inline (OPEN → IN_PROGRESS → RESOLVED)
-- Dashboard with live summary cards (Open, In Progress, Resolved, Total)
-- Priority badges — CRITICAL, HIGH, MEDIUM, LOW with color coding
-- Protected routes — unauthenticated users redirected to login
-- Persistent auth — session survives page refresh via localStorage
-- CORS configured for local development
-
-### 🔜 Coming Soon
-- Role-based access control (RBAC)
-- Comments and activity log per request
-- Analytics charts — resolution time, trends, category breakdown
-- Email notification simulation
-- Docker Compose full-stack setup
-- GitHub Actions CI/CD pipeline
-- AWS ECS + RDS deployment
 
 ---
 
@@ -59,11 +16,54 @@ Built as a showcase project for the **Home Depot Software Engineering Internship
 
 | Login | Dashboard |
 |---|---|
-| Clean login screen with HomeBase branding | Summary cards + recent requests |
+| ![Login](docs/screenshots/login.png) | ![Dashboard](docs/screenshots/dashboard.png) |
 
-| Request List | Create Request |
+| Request List | New Request |
 |---|---|
-| Paginated table with search, filter, inline status update | Form with priority and category selectors |
+| ![Requests](docs/screenshots/requests.png) | ![Create Request](docs/screenshots/create-request.png) |
+
+---
+
+## Tech Stack
+
+| Layer | Technology | Version |
+|---|---|---|
+| Backend | Java, Spring Boot, Spring Security | Java 17, Spring Boot 3.3 |
+| Auth | JWT (access + refresh tokens) | jjwt 0.12.5 |
+| Database | PostgreSQL + Flyway migrations | PostgreSQL 17 |
+| ORM | Hibernate / Spring Data JPA | via Spring Boot 3.3 |
+| Frontend | React, TypeScript, Vite | React 19, TypeScript 6 |
+| Styling | Tailwind CSS | 4.x |
+| HTTP Client | Axios | 1.7 |
+| Routing | React Router | v7 |
+| Build (backend) | Maven | 3.9+ |
+| DevOps | Docker Compose, GitHub Actions CI/CD | planned |
+| Cloud | AWS ECS + RDS | planned |
+
+---
+
+## Features
+
+### Complete
+- JWT authentication — register, login, access + refresh token flow
+- Role-based users — ASSOCIATE, MANAGER, ADMIN
+- Create operational requests with title, description, priority, and category
+- List requests with pagination, search, status/priority/category filters
+- Inline status updates — OPEN → IN_PROGRESS → RESOLVED
+- Dashboard with live summary cards (Open, In Progress, Resolved, Total)
+- Color-coded priority badges — CRITICAL, HIGH, MEDIUM, LOW
+- Protected routes — unauthenticated users redirected to login
+- Persistent sessions — JWT stored in localStorage survives page refresh
+- CORS configured for local development
+
+### Coming Soon
+- Role-based access control (RBAC) — restrict actions by role
+- Comments and activity log per request
+- Analytics — resolution time, trends, category breakdown charts
+- Email notification simulation
+- Docker Compose full-stack setup
+- GitHub Actions CI/CD pipeline
+- AWS ECS + RDS deployment
 
 ---
 
@@ -71,9 +71,9 @@ Built as a showcase project for the **Home Depot Software Engineering Internship
 
 ```
 homebase/
-├── homebase-backend/               # Spring Boot API
+├── homebase-backend/               # Spring Boot REST API
 │   ├── src/main/java/com/homebase/
-│   │   ├── auth/                   # JWT auth, register, login
+│   │   ├── auth/                   # JWT auth — register, login
 │   │   │   ├── dto/                # Request/response DTOs
 │   │   │   └── jwt/                # JwtUtil, JwtAuthFilter
 │   │   ├── config/                 # SecurityConfig, CorsConfig
@@ -84,13 +84,16 @@ homebase/
 │       ├── application.yaml        # Multi-profile config (dev/prod)
 │       └── db/migration/           # Flyway SQL migrations (V1–V6)
 │
-└── homebase-frontend/              # React + TypeScript app
-    └── src/
-        ├── api/                    # Axios instance + API functions
-        ├── components/             # Navbar, PriorityBadge, SummaryCard, RequestRow
-        ├── context/                # AuthContext (global auth state)
-        ├── pages/                  # Login, Dashboard, RequestList, CreateRequest
-        └── types/                  # TypeScript interfaces and types
+├── homebase-frontend/              # React + TypeScript SPA
+│   └── src/
+│       ├── api/                    # Axios instance + typed API functions
+│       ├── components/             # Navbar, PriorityBadge, SummaryCard, RequestRow
+│       ├── context/                # AuthContext — global auth state
+│       ├── pages/                  # Login, Dashboard, RequestList, CreateRequest
+│       └── types/                  # TypeScript interfaces
+│
+└── docs/
+    └── screenshots/                # App screenshots
 ```
 
 ---
@@ -98,77 +101,88 @@ homebase/
 ## Getting Started
 
 ### Prerequisites
-- Java 17+
-- Maven 3.9+
-- PostgreSQL 17+
-- Node.js 18+
 
-### Backend Setup
+| Tool | Version |
+|---|---|
+| Java | 17+ |
+| Maven | 3.9+ |
+| PostgreSQL | 17+ |
+| Node.js | 18+ |
 
-**1. Clone the repository**
+### 1. Clone the repository
+
 ```bash
 git clone https://github.com/minnocent12/homebase.git
-cd homebase/homebase-backend
+cd homebase
 ```
 
-**2. Create the database**
+### 2. Set up the database
+
 ```bash
 psql -U postgres -c "CREATE DATABASE homebase_dev;"
 ```
 
-**3. Set environment variable**
-```bash
-# Windows
-$env:JWT_SECRET = "your-secret-key-min-32-characters-long"
+### 3. Configure environment variables
 
-# Mac/Linux
-export JWT_SECRET="your-secret-key-min-32-characters-long"
+```bash
+# Windows (PowerShell)
+$env:JWT_SECRET = "your-secret-key-at-least-32-characters-long"
+
+# macOS / Linux
+export JWT_SECRET="your-secret-key-at-least-32-characters-long"
 ```
 
-**4. Run the backend**
+### 4. Start the backend
+
 ```bash
+cd homebase-backend
 ./mvnw spring-boot:run
 ```
+
 API available at `http://localhost:8080`
 
-### Frontend Setup
+### 5. Start the frontend
 
 ```bash
-cd homebase/homebase-frontend
+cd homebase-frontend
 npm install
 npm run dev
 ```
+
 App available at `http://localhost:5173`
 
 ---
 
-## API Endpoints
+## API Reference
 
 ### Auth
+
 | Method | Endpoint | Description | Auth |
 |---|---|---|---|
-| POST | `/api/auth/register` | Register new user | Public |
-| POST | `/api/auth/login` | Login and get tokens | Public |
+| POST | `/api/auth/register` | Register a new user | Public |
+| POST | `/api/auth/login` | Login and receive tokens | Public |
 
 ### Requests
+
 | Method | Endpoint | Description | Auth |
 |---|---|---|---|
-| POST | `/api/requests` | Create a request | Required |
-| GET | `/api/requests` | List all requests (paginated) | Required |
-| GET | `/api/requests/{id}` | Get single request | Required |
-| PUT | `/api/requests/{id}` | Update request | Required |
-| GET | `/api/requests/summary` | Dashboard counts | Required |
+| POST | `/api/requests` | Create a new request | Required |
+| GET | `/api/requests` | List requests (paginated, filtered) | Required |
+| GET | `/api/requests/{id}` | Get a single request | Required |
+| PUT | `/api/requests/{id}` | Update a request | Required |
+| GET | `/api/requests/summary` | Dashboard summary counts | Required |
 
-### Query Parameters (GET /api/requests)
-| Param | Description | Example |
+### Query Parameters — `GET /api/requests`
+
+| Parameter | Description | Values |
 |---|---|---|
 | `status` | Filter by status | `OPEN`, `IN_PROGRESS`, `RESOLVED` |
 | `priority` | Filter by priority | `LOW`, `MEDIUM`, `HIGH`, `CRITICAL` |
 | `category` | Filter by category | `IT`, `HR`, `FACILITIES`, `SUPPLY`, `OTHER` |
-| `keyword` | Search title/description | `printer` |
-| `page` | Page number (0-based) | `0` |
-| `size` | Page size | `10` |
-| `sortBy` | Sort field | `createdAt` |
+| `keyword` | Search in title/description | any string |
+| `page` | Page number (0-based) | `0`, `1`, `2`… |
+| `size` | Items per page | default `10` |
+| `sortBy` | Sort field | `createdAt`, `priority`, `status` |
 | `sortDir` | Sort direction | `asc`, `desc` |
 
 ---
@@ -177,24 +191,24 @@ App available at `http://localhost:5173`
 
 | Variable | Description | Required |
 |---|---|---|
-| `JWT_SECRET` | Secret key for signing JWT tokens (min 32 chars) | Yes |
-| `DATABASE_URL` | PostgreSQL connection URL (prod only) | Prod only |
-| `DATABASE_USER` | Database username (prod only) | Prod only |
-| `DATABASE_PASSWORD` | Database password (prod only) | Prod only |
+| `JWT_SECRET` | Signing key for JWT tokens — minimum 32 characters | Always |
+| `DATABASE_URL` | PostgreSQL JDBC URL | Production only |
+| `DATABASE_USER` | Database username | Production only |
+| `DATABASE_PASSWORD` | Database password | Production only |
 
 ---
 
 ## Database Migrations
 
-Flyway handles all schema changes automatically on startup.
+Flyway applies all schema changes automatically at startup.
 
-| Version | Description |
+| Migration | Description |
 |---|---|
-| V1 | Initial schema — users, requests, status_history |
-| V2 | Add comments table |
-| V3 | Add notifications table |
-| V4 | Convert role column to VARCHAR |
-| V5 | No-op placeholder |
+| V1 | Initial schema — `users`, `requests`, `status_history` tables |
+| V2 | Add `comments` table |
+| V3 | Add `notifications` table |
+| V4 | Convert `role` column to VARCHAR |
+| V5 | Placeholder |
 | V6 | Restore request enum columns as VARCHAR |
 
 ---

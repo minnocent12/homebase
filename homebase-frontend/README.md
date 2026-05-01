@@ -6,7 +6,7 @@ React + TypeScript SPA for the HomeBase Store Support Center Portal.
 
 ## Overview
 
-The frontend is a single-page application built with React 19, TypeScript, Vite, and Tailwind CSS. It communicates with the Spring Boot backend at `http://localhost:8080` via Axios, and manages authentication state globally with React Context + localStorage.
+The frontend is a single-page application built with React 19, TypeScript, Vite, and Tailwind CSS. It communicates with the Spring Boot backend at `http://localhost:8080` via Axios, enforces role-based UI visibility, and manages authentication state globally with React Context + localStorage.
 
 ---
 
@@ -20,6 +20,10 @@ The frontend is a single-page application built with React 19, TypeScript, Vite,
 |---|---|
 | ![Requests](../docs/screenshots/requests.png) | ![Create Request](../docs/screenshots/create-request.png) |
 
+| Request Detail & Activity Log | Analytics Dashboard |
+|---|---|
+| ![Request Detail](../docs/screenshots/request-detail.png) | ![Analytics](../docs/screenshots/analytics.png) |
+
 ---
 
 ## Tech Stack
@@ -30,6 +34,7 @@ The frontend is a single-page application built with React 19, TypeScript, Vite,
 | TypeScript | Type safety | ~6.0 |
 | Vite | Build tool and dev server | 8.x |
 | Tailwind CSS | Utility-first styling | 4.x |
+| Recharts | Charts (bar, pie, line) | 3.x |
 | Axios | HTTP client | 1.7 |
 | React Router | Client-side routing | v7 |
 
@@ -37,12 +42,14 @@ The frontend is a single-page application built with React 19, TypeScript, Vite,
 
 ## Pages
 
-| Route | Page | Description |
-|---|---|---|
-| `/login` | `LoginPage` | Email + password sign-in form with HomeBase branding |
-| `/dashboard` | `DashboardPage` | Summary cards (Open / In Progress / Resolved / Total) + recent requests |
-| `/requests` | `RequestListPage` | Full paginated table with keyword search, status/priority/category filters, inline status updates |
-| `/requests/new` | `CreateRequestPage` | Form to submit a new request — title, description, priority, category |
+| Route | Page | Description | Access |
+|---|---|---|---|
+| `/login` | `LoginPage` | Email + password sign-in form with HomeBase branding | Public |
+| `/dashboard` | `DashboardPage` | Summary cards (Open / In Progress / Resolved / Total) + recent requests | All roles |
+| `/requests` | `RequestListPage` | Paginated table with keyword search, status/priority/category filters, inline status updates | All roles (Associates see own requests only) |
+| `/requests/:id` | `RequestDetailPage` | Full request view — metadata, status/priority badges, threaded activity log, add comment | All roles |
+| `/requests/new` | `CreateRequestPage` | Form to submit a new request — title, description, priority, category | All roles |
+| `/analytics` | `AnalyticsPage` | Bar/pie/line charts — category, status, priority, 7-day trend, avg resolution time | MANAGER / ADMIN only |
 
 ---
 
@@ -50,10 +57,10 @@ The frontend is a single-page application built with React 19, TypeScript, Vite,
 
 | Component | Description |
 |---|---|
-| `Navbar` | Top nav with links to Dashboard, Requests, New Request; shows current user name + role; Logout button |
+| `Navbar` | Top nav — links to Dashboard, Requests, New Request, Analytics (MANAGER/ADMIN only); shows user name with color-coded role badge (red=ADMIN, purple=MANAGER, blue=ASSOCIATE); Logout button |
 | `SummaryCard` | Dashboard stat card — label + count with color-coded border |
 | `PriorityBadge` | Colored pill badge for CRITICAL / HIGH / MEDIUM / LOW |
-| `RequestRow` | Table row for a single request in the list view with inline status dropdown |
+| `RequestRow` | Table row for a single request — title is a clickable link to the detail page; status dropdown is disabled for ASSOCIATE (shows "View only") |
 
 ---
 
@@ -63,21 +70,25 @@ The frontend is a single-page application built with React 19, TypeScript, Vite,
 src/
 ├── api/
 │   ├── axios.ts          # Axios instance — base URL + Authorization header injection
-│   └── requests.ts       # Typed API functions: createRequest, getRequests, updateRequest, getSummary
+│   ├── requests.ts       # Typed API functions: createRequest, getRequests, updateRequest, deleteRequest, getSummary
+│   ├── comments.ts       # getComments(requestId), addComment(requestId, body)
+│   └── analytics.ts      # getAnalyticsSummary() — ChartEntry and AnalyticsSummary types
 ├── components/
-│   ├── Navbar.tsx
+│   ├── Navbar.tsx         # Role-aware nav with colored role badge + Analytics link
 │   ├── PriorityBadge.tsx
 │   ├── SummaryCard.tsx
-│   └── RequestRow.tsx
+│   └── RequestRow.tsx     # Clickable title link; RBAC-conditional status dropdown
 ├── context/
 │   └── AuthContext.tsx    # Global auth state — user, token, login(), logout()
 ├── pages/
 │   ├── LoginPage.tsx
 │   ├── DashboardPage.tsx
 │   ├── RequestListPage.tsx
-│   └── CreateRequestPage.tsx
+│   ├── RequestDetailPage.tsx  # Request metadata + activity log + add comment
+│   ├── CreateRequestPage.tsx
+│   └── AnalyticsPage.tsx      # Recharts bar/pie/line; MANAGER/ADMIN only
 ├── types/
-│   └── index.ts           # TypeScript interfaces: User, Request, RequestSummary, etc.
+│   └── index.ts           # TypeScript interfaces: User, Request, Comment, RequestSummary, AnalyticsSummary, etc.
 ├── App.tsx                # Route definitions with protected route guard
 └── main.tsx               # App entry point
 ```
@@ -91,7 +102,20 @@ src/
 3. On success, `accessToken` and user info are stored in `localStorage`
 4. Axios interceptor reads the token from `localStorage` and injects `Authorization: Bearer <token>` on every request
 5. `App.tsx` wraps protected routes in a guard that redirects unauthenticated users to `/login`
-6. `AuthContext.logout()` clears `localStorage` and redirects to `/login`
+6. `AnalyticsPage` additionally checks `user.role` and redirects non-MANAGER/ADMIN users to `/dashboard`
+7. `AuthContext.logout()` clears `localStorage` and redirects to `/login`
+
+---
+
+## RBAC in the UI
+
+| UI Element | ASSOCIATE | MANAGER | ADMIN |
+|---|---|---|---|
+| Analytics nav link | Hidden | Visible | Visible |
+| Request list | Own requests only | All requests | All requests |
+| Status update dropdown | Disabled ("View only") | Enabled | Enabled |
+| Analytics page | Redirected to dashboard | Full access | Full access |
+| Role badge color | Blue | Purple | Red |
 
 ---
 

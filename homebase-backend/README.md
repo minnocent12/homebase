@@ -6,7 +6,7 @@ Spring Boot REST API for the HomeBase Store Support Center Portal.
 
 ## Overview
 
-This is the backend service for HomeBase. It provides a secure JWT-authenticated REST API that manages users and operational requests. Built with Spring Boot 3.3, Spring Security, Hibernate/JPA, and PostgreSQL, with Flyway handling all schema migrations.
+This is the backend service for HomeBase. It provides a secure JWT-authenticated REST API with role-based access control (RBAC) that manages users, operational requests, comments, and analytics. Built with Spring Boot 3.3, Spring Security, Hibernate/JPA, and PostgreSQL, with Flyway handling all schema migrations.
 
 ---
 
@@ -44,13 +44,24 @@ src/main/java/com/homebase/
 ├── request/
 │   ├── Request.java                # JPA entity
 │   ├── RequestRepository.java      # JPA repository with Specification queries
-│   ├── RequestService.java         # Business logic — create, list, update, summary
-│   ├── RequestController.java      # POST/GET/PUT /api/requests
+│   ├── RequestService.java         # Business logic — create, list, update, delete; RBAC enforced
+│   ├── RequestController.java      # POST/GET/PUT/DELETE /api/requests
 │   └── dto/
 │       ├── CreateRequestDto.java
 │       ├── UpdateRequestDto.java
 │       ├── RequestResponseDto.java
 │       └── RequestSummaryDto.java
+├── comment/
+│   ├── Comment.java                # JPA entity — id, requestId, userId, body, createdAt
+│   ├── CommentRepository.java      # findByRequestIdOrderByCreatedAtAsc, countByRequestId
+│   ├── CommentService.java         # addComment, getComments
+│   ├── CommentController.java      # POST/GET /api/requests/{id}/comments
+│   └── dto/
+│       ├── CreateCommentDto.java   # body (max 1000 chars)
+│       └── CommentResponseDto.java # id, requestId, userId, userName, userRole, body, createdAt
+├── analytics/
+│   ├── AnalyticsController.java    # GET /api/analytics/summary (MANAGER/ADMIN only)
+│   └── AnalyticsService.java       # byCategory, byStatus, byPriority, last7DaysTrend, avgResolutionHours
 └── user/
     ├── User.java                   # JPA entity — id, fullName, email, passwordHash, role
     └── UserRepository.java
@@ -79,13 +90,39 @@ src/main/resources/
 
 ### Requests — Requires `Authorization: Bearer <token>`
 
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | `/api/requests` | Create a new request |
-| GET | `/api/requests` | List requests with pagination and filters |
-| GET | `/api/requests/{id}` | Get a single request by ID |
-| PUT | `/api/requests/{id}` | Update title, description, status, priority, category |
-| GET | `/api/requests/summary` | Returns `{ open, inProgress, resolved, total }` |
+| Method | Endpoint | Description | RBAC |
+|---|---|---|---|
+| POST | `/api/requests` | Create a new request | Any role |
+| GET | `/api/requests` | List requests (paginated, filtered) | Associates: own requests only |
+| GET | `/api/requests/{id}` | Get a single request | Associates: own requests only |
+| PUT | `/api/requests/{id}` | Update title, description, status, priority, category | MANAGER / ADMIN |
+| DELETE | `/api/requests/{id}` | Permanently delete a request | ADMIN only |
+| GET | `/api/requests/summary` | Returns `{ open, inProgress, resolved, total }` | Associates: own counts only |
+
+### Comments — Requires `Authorization: Bearer <token>`
+
+| Method | Endpoint | Description | RBAC |
+|---|---|---|---|
+| POST | `/api/requests/{id}/comments` | Add a comment to a request | Any role |
+| GET | `/api/requests/{id}/comments` | Fetch comments in chronological order | Any role |
+
+### Analytics — Requires `Authorization: Bearer <token>`
+
+| Method | Endpoint | Description | RBAC |
+|---|---|---|---|
+| GET | `/api/analytics/summary` | Returns category, status, priority breakdowns + 7-day trend + avg resolution hours | MANAGER / ADMIN |
+
+**Analytics response shape:**
+```json
+{
+  "totalRequests": 19,
+  "byCategory": [{ "label": "IT", "count": 7 }, ...],
+  "byStatus":   [{ "label": "OPEN", "count": 16 }, ...],
+  "byPriority": [{ "label": "CRITICAL", "count": 5 }, ...],
+  "last7DaysTrend": [{ "label": "Apr 25", "count": 0 }, ...],
+  "avgResolutionHours": 2.4
+}
+```
 
 ### Query Parameters — `GET /api/requests`
 
@@ -99,6 +136,19 @@ src/main/resources/
 | `size` | int | Page size (default: `10`) |
 | `sortBy` | string | Sort field — `createdAt`, `priority`, `status` |
 | `sortDir` | string | `asc` \| `desc` |
+
+---
+
+## Role Permissions
+
+| Action | ASSOCIATE | MANAGER | ADMIN |
+|---|---|---|---|
+| Create request | Yes | Yes | Yes |
+| View requests / summary | Own only | All | All |
+| Update request | No | Yes | Yes |
+| Delete request | No | No | Yes |
+| Add / view comments | Yes | Yes | Yes |
+| View analytics | No | Yes | Yes |
 
 ---
 
@@ -130,6 +180,15 @@ PostgreSQL 17+ — Flyway manages all migrations.
 | `created_at` | TIMESTAMP | |
 | `updated_at` | TIMESTAMP | Auto-updated by DB trigger |
 
+### `comments`
+| Column | Type | Notes |
+|---|---|---|
+| `id` | UUID | Primary key |
+| `request_id` | UUID | FK → `requests.id` |
+| `user_id` | UUID | FK → `users.id` |
+| `body` | TEXT | Max 1000 chars |
+| `created_at` | TIMESTAMP | Immutable — set on insert |
+
 ### `status_history`
 | Column | Type | Notes |
 |---|---|---|
@@ -156,9 +215,10 @@ PostgreSQL 17+ — Flyway manages all migrations.
 ## Security Design
 
 - **JWT access tokens** — 15-minute expiry, validated on every request via `JwtAuthFilter`
-- **JWT refresh tokens** — 7-day expiry, stored in `AuthResponse` for the client to use
+- **JWT refresh tokens** — 7-day expiry, returned in `AuthResponse` for client-side storage
 - **Passwords** — hashed with bcrypt via Spring Security's `PasswordEncoder`
-- **Public routes** — `POST /api/auth/register` and `POST /api/auth/login` are unauthenticated; all others require a valid Bearer token
+- **Public routes** — `/api/auth/register` and `/api/auth/login` are unauthenticated; all others require a valid Bearer token
+- **RBAC** — `RequestService` enforces role checks at the service layer; `@PreAuthorize` annotations guard update (MANAGER/ADMIN) and delete (ADMIN) endpoints; `AnalyticsController` restricts analytics to MANAGER/ADMIN
 - **CORS** — `localhost:5173` allowed in dev profile; tightened in prod
 
 ---

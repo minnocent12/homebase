@@ -22,6 +22,10 @@ Built as a showcase project for the **Home Depot Software Engineering Internship
 |---|---|
 | ![Requests](docs/screenshots/requests.png) | ![Create Request](docs/screenshots/create-request.png) |
 
+| Request Detail & Activity Log | Analytics Dashboard |
+|---|---|
+| ![Request Detail](docs/screenshots/request-detail.png) | ![Analytics](docs/screenshots/analytics.png) |
+
 ---
 
 ## Tech Stack
@@ -34,6 +38,7 @@ Built as a showcase project for the **Home Depot Software Engineering Internship
 | ORM | Hibernate / Spring Data JPA | via Spring Boot 3.3 |
 | Frontend | React, TypeScript, Vite | React 19, TypeScript 6 |
 | Styling | Tailwind CSS | 4.x |
+| Charts | Recharts | 3.x |
 | HTTP Client | Axios | 1.7 |
 | Routing | React Router | v7 |
 | Build (backend) | Maven | 3.9+ |
@@ -49,17 +54,17 @@ Built as a showcase project for the **Home Depot Software Engineering Internship
 - Role-based users — ASSOCIATE, MANAGER, ADMIN
 - Create operational requests with title, description, priority, and category
 - List requests with pagination, search, status/priority/category filters
-- Inline status updates — OPEN → IN_PROGRESS → RESOLVED
-- Dashboard with live summary cards (Open, In Progress, Resolved, Total)
 - Color-coded priority badges — CRITICAL, HIGH, MEDIUM, LOW
+- Dashboard with live summary cards (Open, In Progress, Resolved, Total)
 - Protected routes — unauthenticated users redirected to login
 - Persistent sessions — JWT stored in localStorage survives page refresh
 - CORS configured for local development
+- **RBAC** — Associates see and manage only their own requests; Managers can view and update all; Admins have full access including delete
+- **Comments & activity log** — threaded comments per request with user name, role badge, and timestamp
+- **Request detail page** — full view of a single request with metadata, status/priority badges, and activity log
+- **Analytics dashboard** — bar, pie, and line charts for category, status, priority breakdowns and 7-day trend; MANAGER/ADMIN only
 
 ### Coming Soon
-- Role-based access control (RBAC) — restrict actions by role
-- Comments and activity log per request
-- Analytics — resolution time, trends, category breakdown charts
 - Email notification simulation
 - Docker Compose full-stack setup
 - GitHub Actions CI/CD pipeline
@@ -74,11 +79,14 @@ homebase/
 ├── homebase-backend/               # Spring Boot REST API
 │   ├── src/main/java/com/homebase/
 │   │   ├── auth/                   # JWT auth — register, login
-│   │   │   ├── dto/                # Request/response DTOs
+│   │   │   ├── dto/
 │   │   │   └── jwt/                # JwtUtil, JwtAuthFilter
 │   │   ├── config/                 # SecurityConfig, CorsConfig
-│   │   ├── request/                # Request entity, service, controller
+│   │   ├── request/                # Request entity, service, controller (RBAC-enforced)
 │   │   │   └── dto/
+│   │   ├── comment/                # Comment entity, service, controller
+│   │   │   └── dto/
+│   │   ├── analytics/              # AnalyticsController, AnalyticsService
 │   │   └── user/                   # User entity, repository
 │   └── src/main/resources/
 │       ├── application.yaml        # Multi-profile config (dev/prod)
@@ -86,10 +94,11 @@ homebase/
 │
 ├── homebase-frontend/              # React + TypeScript SPA
 │   └── src/
-│       ├── api/                    # Axios instance + typed API functions
+│       ├── api/                    # Axios instance + typed API modules
 │       ├── components/             # Navbar, PriorityBadge, SummaryCard, RequestRow
 │       ├── context/                # AuthContext — global auth state
-│       ├── pages/                  # Login, Dashboard, RequestList, CreateRequest
+│       ├── pages/                  # Login, Dashboard, RequestList, RequestDetail,
+│       │                           #   CreateRequest, Analytics
 │       └── types/                  # TypeScript interfaces
 │
 └── docs/
@@ -164,13 +173,27 @@ App available at `http://localhost:5173`
 
 ### Requests
 
+| Method | Endpoint | Description | RBAC |
+|---|---|---|---|
+| POST | `/api/requests` | Create a new request | Any role |
+| GET | `/api/requests` | List requests (paginated, filtered) | Associates see own only |
+| GET | `/api/requests/{id}` | Get a single request | Associates see own only |
+| PUT | `/api/requests/{id}` | Update a request | MANAGER / ADMIN |
+| DELETE | `/api/requests/{id}` | Delete a request | ADMIN only |
+| GET | `/api/requests/summary` | Dashboard summary counts | Associates see own counts |
+
+### Comments
+
 | Method | Endpoint | Description | Auth |
 |---|---|---|---|
-| POST | `/api/requests` | Create a new request | Required |
-| GET | `/api/requests` | List requests (paginated, filtered) | Required |
-| GET | `/api/requests/{id}` | Get a single request | Required |
-| PUT | `/api/requests/{id}` | Update a request | Required |
-| GET | `/api/requests/summary` | Dashboard summary counts | Required |
+| POST | `/api/requests/{id}/comments` | Add a comment to a request | Required |
+| GET | `/api/requests/{id}/comments` | Get all comments for a request | Required |
+
+### Analytics
+
+| Method | Endpoint | Description | RBAC |
+|---|---|---|---|
+| GET | `/api/analytics/summary` | Category, status, priority, trend data | MANAGER / ADMIN |
 
 ### Query Parameters — `GET /api/requests`
 
@@ -184,6 +207,20 @@ App available at `http://localhost:5173`
 | `size` | Items per page | default `10` |
 | `sortBy` | Sort field | `createdAt`, `priority`, `status` |
 | `sortDir` | Sort direction | `asc`, `desc` |
+
+---
+
+## Role Permissions
+
+| Action | ASSOCIATE | MANAGER | ADMIN |
+|---|---|---|---|
+| Register / Login | Yes | Yes | Yes |
+| Create request | Yes | Yes | Yes |
+| View requests | Own only | All | All |
+| Update request | No | Yes | Yes |
+| Delete request | No | No | Yes |
+| Add / view comments | Yes | Yes | Yes |
+| View analytics | No | Yes | Yes |
 
 ---
 

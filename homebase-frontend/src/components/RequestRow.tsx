@@ -1,6 +1,7 @@
 import type { Request, RequestStatus } from '../types';
 import PriorityBadge from './PriorityBadge';
 import { useAuth } from '../context/AuthContext';
+import { Link } from 'react-router-dom';
 
 interface Props {
   request: Request;
@@ -24,9 +25,14 @@ const RequestRow = ({ request, onStatusChange }: Props) => {
   return (
     <tr className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
 
-      {/* Title + description */}
+      {/* Title + description — clickable */}
       <td className="py-3 px-4">
-        <p className="font-medium text-gray-900 text-sm">{request.title}</p>
+        <Link
+          to={`/requests/${request.id}`}
+          className="font-medium text-gray-900 text-sm hover:text-blue-600 transition-colors"
+        >
+          {request.title}
+        </Link>
         {request.description && (
           <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{request.description}</p>
         )}

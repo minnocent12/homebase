@@ -16,3 +16,5 @@ export interface CreateRequestPayload { title: string; description?: string; pri
 export interface UpdateRequestPayload { title?: string; description?: string; status?: RequestStatus; priority?: RequestPriority; category?: RequestCategory; assignedToId?: string; }
 export interface Page<T> { content: T[]; totalElements: number; totalPages: number; number: number; size: number; first: boolean; last: boolean; }
 export interface DashboardSummary { open: number; inProgress: number; resolved: number; total: number; }
+
+export interface Comment { id: string; requestId: string; userId: string; userName: string; userRole: string; body: string; createdAt: string; }

@@ -5,6 +5,7 @@ import LoginPage         from './pages/LoginPage';
 import DashboardPage     from './pages/DashboardPage';
 import RequestListPage   from './pages/RequestListPage';
 import CreateRequestPage from './pages/CreateRequestPage';
+import RequestDetailPage from './pages/RequestDetailPage';
 
 // ── Protected route wrapper ───────────────────────────────────
 const Protected = ({ children }: { children: ReactNode }) => {
@@ -29,6 +30,9 @@ const App = () => (
         } />
         <Route path="/requests/new" element={
           <Protected><CreateRequestPage /></Protected>
+        } />
+        <Route path="/requests/:id" element={
+          <Protected><RequestDetailPage /></Protected>
         } />
 
         {/* Default redirect */}

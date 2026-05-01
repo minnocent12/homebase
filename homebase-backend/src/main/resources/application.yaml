@@ -1,0 +1,62 @@
+# ── application.yml (base — always loaded) ──────────────────
+spring:
+  profiles:
+    active: dev
+  application:
+    name: homebase-backend
+  jpa:
+    hibernate:
+      ddl-auto: validate        # Flyway owns the schema, Hibernate only validates
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+app:
+  jwt:
+    secret: ${JWT_SECRET}       # set in env; min 32 chars
+    access-token-expiry-ms: 900000      # 15 min
+    refresh-token-expiry-ms: 604800000  # 7 days
+
+server:
+  port: 8080
+
+---
+# ── application-dev.yml ──────────────────────────────────────
+spring:
+  config:
+    activate:
+      on-profile: dev
+  datasource:
+    url: jdbc:postgresql://localhost:5432/homebase_dev
+    username: postgres
+    password: Milenge.ines2010
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+logging:
+  level:
+    com.homebase: DEBUG
+    org.springframework.security: DEBUG
+
+---
+# ── application-prod.yml ─────────────────────────────────────
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    url: ${DATABASE_URL}        # AWS RDS connection string from env
+    username: ${DATABASE_USER}
+    password: ${DATABASE_PASSWORD}
+  jpa:
+    show-sql: false
+
+logging:
+  level:
+    com.homebase: INFO
+    root: WARN

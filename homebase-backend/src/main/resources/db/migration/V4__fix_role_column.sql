@@ -1,8 +1,22 @@
--- ============================================================
--- HomeBase — V4: convert all enum columns to varchar
--- Already applied manually via psql — this records it in Flyway
--- ============================================================
+ALTER TABLE users ALTER COLUMN role DROP DEFAULT;
+ALTER TABLE users ALTER COLUMN role TYPE VARCHAR(20) USING role::TEXT;
 
--- role column already converted manually
--- this migration is a no-op to keep Flyway history clean
-SELECT 1;
+ALTER TABLE requests ALTER COLUMN status DROP DEFAULT;
+ALTER TABLE requests ALTER COLUMN status TYPE VARCHAR(20) USING status::TEXT;
+ALTER TABLE requests ALTER COLUMN status SET DEFAULT 'OPEN';
+
+ALTER TABLE requests ALTER COLUMN priority DROP DEFAULT;
+ALTER TABLE requests ALTER COLUMN priority TYPE VARCHAR(20) USING priority::TEXT;
+ALTER TABLE requests ALTER COLUMN priority SET DEFAULT 'MEDIUM';
+
+ALTER TABLE requests ALTER COLUMN category DROP DEFAULT;
+ALTER TABLE requests ALTER COLUMN category TYPE VARCHAR(20) USING category::TEXT;
+ALTER TABLE requests ALTER COLUMN category SET DEFAULT 'OTHER';
+
+ALTER TABLE status_history ALTER COLUMN old_status TYPE VARCHAR(20) USING old_status::TEXT;
+ALTER TABLE status_history ALTER COLUMN new_status TYPE VARCHAR(20) USING new_status::TEXT;
+
+DROP TYPE IF EXISTS user_role;
+DROP TYPE IF EXISTS request_status;
+DROP TYPE IF EXISTS request_priority;
+DROP TYPE IF EXISTS request_category;

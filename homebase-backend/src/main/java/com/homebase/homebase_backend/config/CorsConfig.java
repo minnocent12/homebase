@@ -17,6 +17,7 @@ public class CorsConfig {
 
         // Allow React dev server and production frontend
         config.setAllowedOrigins(List.of(
+                "http://localhost",        // Docker nginx (port 80)
                 "http://localhost:5173",   // Vite dev server
                 "http://localhost:3000"    // fallback
         ));

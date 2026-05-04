@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────
+  db:
+    image: postgres:17-alpine
+    container_name: homebase-db
+    environment:
+      POSTGRES_DB: homebase_dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: securepass123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Spring Boot Backend ─────────────────────────────────────
+  backend:
+    build:
+      context: ./homebase-backend
+      dockerfile: Dockerfile
+    container_name: homebase-backend
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DATABASE_URL: jdbc:postgresql://db:5432/homebase_dev
+      DATABASE_USER: postgres
+      DATABASE_PASSWORD: securepass123
+      JWT_SECRET: homebase-super-secret-key-for-dev-only-32chars
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── React Frontend ──────────────────────────────────────────
+  frontend:
+    build:
+      context: ./homebase-frontend
+      dockerfile: Dockerfile
+    container_name: homebase-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

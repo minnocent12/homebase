@@ -1,4 +1,5 @@
-import { useEffect, useState, FormEvent } from 'react';
+import { useEffect, useState } from 'react';
+import type { FormEvent } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getRequestById } from '../api/requests';
 import { getComments, addComment } from '../api/comments';

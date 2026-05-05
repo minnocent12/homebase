@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+
+  # ── Backend: Build & Test ──────────────────────────────────────
+  backend:
+    name: Backend — Build & Test
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: homebase_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: testpass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: maven
+
+      - name: Run tests
+        working-directory: homebase-backend
+        env:
+          SPRING_PROFILES_ACTIVE: prod
+          DATABASE_URL: jdbc:postgresql://localhost:5432/homebase_test
+          DATABASE_USER: postgres
+          DATABASE_PASSWORD: testpass
+          JWT_SECRET: homebase-ci-test-secret-key-minimum-32chars
+        run: mvn test -B
+
+  # ── Frontend: Build ────────────────────────────────────────────
+  frontend:
+    name: Frontend — Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: homebase-frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: homebase-frontend
+        run: npm ci
+
+      - name: Build
+        working-directory: homebase-frontend
+        run: npm run build

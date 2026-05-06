@@ -9,6 +9,7 @@ import com.homebase.homebase_backend.user.UserRole;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,39 +38,44 @@ public class RequestService {
         return RequestResponseDto.from(requestRepository.save(request));
     }
 
-    // ── Get All (RBAC aware) ─────────────────────────────────
+    // ── Get All (RBAC aware, all filters combined with AND) ──────
     @Transactional(readOnly = true)
     public Page<RequestResponseDto> getAll(
             String status, String priority, String category,
             String keyword, Pageable pageable, User currentUser) {
 
+        Specification<Request> spec = Specification.where(null);
+
         // ASSOCIATEs can only see their own requests
         if (currentUser.getRole() == UserRole.ASSOCIATE) {
-            return requestRepository.findByCreatedById(currentUser.getId(), pageable)
-                    .map(RequestResponseDto::from);
+            spec = spec.and((root, query, cb) ->
+                    cb.equal(root.get("createdBy").get("id"), currentUser.getId()));
+        }
+
+        if (status != null && !status.isBlank()) {
+            spec = spec.and((root, query, cb) ->
+                    cb.equal(root.get("status"), RequestStatus.valueOf(status.toUpperCase())));
+        }
+
+        if (priority != null && !priority.isBlank()) {
+            spec = spec.and((root, query, cb) ->
+                    cb.equal(root.get("priority"), RequestPriority.valueOf(priority.toUpperCase())));
+        }
+
+        if (category != null && !category.isBlank()) {
+            spec = spec.and((root, query, cb) ->
+                    cb.equal(root.get("category"), RequestCategory.valueOf(category.toUpperCase())));
         }
 
         if (keyword != null && !keyword.isBlank()) {
-            return requestRepository.searchByKeyword(keyword, pageable)
-                    .map(RequestResponseDto::from);
-        }
-        if (status != null && !status.isBlank()) {
-            return requestRepository.findByStatus(
-                    RequestStatus.valueOf(status.toUpperCase()), pageable)
-                    .map(RequestResponseDto::from);
-        }
-        if (priority != null && !priority.isBlank()) {
-            return requestRepository.findByPriority(
-                    RequestPriority.valueOf(priority.toUpperCase()), pageable)
-                    .map(RequestResponseDto::from);
-        }
-        if (category != null && !category.isBlank()) {
-            return requestRepository.findByCategory(
-                    RequestCategory.valueOf(category.toUpperCase()), pageable)
-                    .map(RequestResponseDto::from);
+            String pattern = "%" + keyword.toLowerCase() + "%";
+            spec = spec.and((root, query, cb) -> cb.or(
+                    cb.like(cb.lower(root.get("title")), pattern),
+                    cb.like(cb.lower(root.get("description")), pattern)
+            ));
         }
 
-        return requestRepository.findAll(pageable).map(RequestResponseDto::from);
+        return requestRepository.findAll(spec, pageable).map(RequestResponseDto::from);
     }
 
     // ── Get By ID (RBAC aware) ───────────────────────────────
@@ -118,16 +124,13 @@ public class RequestService {
     // ── Dashboard summary ────────────────────────────────────
     public DashboardSummary getSummary(User currentUser) {
         if (currentUser.getRole() == UserRole.ASSOCIATE) {
-            // ASSOCIATEs see only their own counts
-            long open = requestRepository.findByCreatedById(currentUser.getId(),
-                    Pageable.unpaged()).stream()
-                    .filter(r -> r.getStatus() == RequestStatus.OPEN).count();
-            long inProgress = requestRepository.findByCreatedById(currentUser.getId(),
-                    Pageable.unpaged()).stream()
-                    .filter(r -> r.getStatus() == RequestStatus.IN_PROGRESS).count();
-            long resolved = requestRepository.findByCreatedById(currentUser.getId(),
-                    Pageable.unpaged()).stream()
-                    .filter(r -> r.getStatus() == RequestStatus.RESOLVED).count();
+            Specification<Request> mine = (root, query, cb) ->
+                    cb.equal(root.get("createdBy").get("id"), currentUser.getId());
+
+            long open       = requestRepository.count(mine.and((r, q, cb) -> cb.equal(r.get("status"), RequestStatus.OPEN)));
+            long inProgress = requestRepository.count(mine.and((r, q, cb) -> cb.equal(r.get("status"), RequestStatus.IN_PROGRESS)));
+            long resolved   = requestRepository.count(mine.and((r, q, cb) -> cb.equal(r.get("status"), RequestStatus.RESOLVED)));
+
             return DashboardSummary.builder()
                     .open(open).inProgress(inProgress)
                     .resolved(resolved).total(open + inProgress + resolved)

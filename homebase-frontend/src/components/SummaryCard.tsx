@@ -1,10 +1,12 @@
 import type { ComponentType, SVGProps } from 'react';
+import { Link } from 'react-router-dom';
 
 interface Props {
   label: string;
   count: number;
   color: 'blue' | 'yellow' | 'green' | 'gray';
   icon?: ComponentType<SVGProps<SVGSVGElement>>;
+  to?: string;
 }
 
 const colorMap = {
@@ -28,14 +30,18 @@ const iconColor = {
   gray:   'text-gray-400',
 };
 
-const SummaryCard = ({ label, count, color, icon: Icon }: Props) => (
-  <div className={`rounded-xl border p-5 flex flex-col gap-1 ${colorMap[color]}`}>
-    <div className="flex items-center justify-between">
-      <span className="text-sm font-medium">{label}</span>
-      {Icon && <Icon className={`w-5 h-5 ${iconColor[color]}`} />}
+const SummaryCard = ({ label, count, color, icon: Icon, to }: Props) => {
+  const inner = (
+    <div className={`rounded-xl border p-5 flex flex-col gap-1 ${colorMap[color]} ${to ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}`}>
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium">{label}</span>
+        {Icon && <Icon className={`w-5 h-5 ${iconColor[color]}`} />}
+      </div>
+      <span className={`text-4xl font-bold ${countColor[color]}`}>{count}</span>
     </div>
-    <span className={`text-4xl font-bold ${countColor[color]}`}>{count}</span>
-  </div>
-);
+  );
+
+  return to ? <Link to={to}>{inner}</Link> : inner;
+};
 
 export default SummaryCard;

@@ -68,10 +68,10 @@ const DashboardPage = () => {
           </div>
         ) : summary && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <SummaryCard label="Open"        count={summary.open}       color="blue"   icon={FolderOpenIcon}             />
-            <SummaryCard label="In Progress" count={summary.inProgress} color="yellow" icon={ArrowPathIcon}              />
-            <SummaryCard label="Resolved"    count={summary.resolved}   color="green"  icon={CheckCircleIcon}            />
-            <SummaryCard label="Total"       count={summary.total}      color="gray"   icon={ClipboardDocumentListIcon}  />
+            <SummaryCard label="Open"        count={summary.open}       color="blue"   icon={FolderOpenIcon}            to="/requests?status=OPEN"        />
+            <SummaryCard label="In Progress" count={summary.inProgress} color="yellow" icon={ArrowPathIcon}             to="/requests?status=IN_PROGRESS" />
+            <SummaryCard label="Resolved"    count={summary.resolved}   color="green"  icon={CheckCircleIcon}           to="/requests?status=RESOLVED"    />
+            <SummaryCard label="Total"       count={summary.total}      color="gray"   icon={ClipboardDocumentListIcon} to="/requests"                    />
           </div>
         )}
 

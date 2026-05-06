@@ -1,18 +1,20 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { getRequests, updateRequest } from '../api/requests';
 import type { Request, RequestStatus } from '../types';
 import RequestRow from '../components/RequestRow';
 import Navbar from '../components/Navbar';
 
 const RequestListPage = () => {
+  const [searchParams] = useSearchParams();
+
   const [requests, setRequests] = useState<Request[]>([]);
   const [total, setTotal]       = useState(0);
   const [loading, setLoading]   = useState(true);
 
-  // Filters
+  // Filters — initialise status from ?status= query param (e.g. from dashboard cards)
   const [keyword, setKeyword]   = useState('');
-  const [status, setStatus]     = useState('');
+  const [status, setStatus]     = useState(searchParams.get('status') ?? '');
   const [priority, setPriority] = useState('');
   const [category, setCategory] = useState('');
 

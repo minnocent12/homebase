@@ -113,15 +113,17 @@ const AnalyticsPage = () => {
                   cx="50%"
                   cy="50%"
                   outerRadius={80}
-                  label={({ name, value }) => `${String(name).replace('_', ' ')}: ${value}`}
-                  labelLine={false}
                 >
                   {data.byStatus.map((entry, i) => (
                     <Cell key={i} fill={STATUS_COLORS[entry.name] ?? '#9CA3AF'} />
                   ))}
                 </Pie>
-                <Legend formatter={v => v.replace('_', ' ')} />
-                <Tooltip />
+                <Legend
+                  formatter={(value, entry: any) =>
+                    `${String(value).replace('_', ' ')}: ${entry.payload.value}`
+                  }
+                />
+                <Tooltip formatter={(value, name) => [value, String(name).replace('_', ' ')]} />
               </PieChart>
             </ResponsiveContainer>
           </div>

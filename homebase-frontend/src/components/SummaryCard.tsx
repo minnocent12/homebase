@@ -1,7 +1,10 @@
+import type { ComponentType, SVGProps } from 'react';
+
 interface Props {
   label: string;
   count: number;
   color: 'blue' | 'yellow' | 'green' | 'gray';
+  icon?: ComponentType<SVGProps<SVGSVGElement>>;
 }
 
 const colorMap = {
@@ -18,9 +21,19 @@ const countColor = {
   gray:   'text-gray-600',
 };
 
-const SummaryCard = ({ label, count, color }: Props) => (
+const iconColor = {
+  blue:   'text-blue-400',
+  yellow: 'text-yellow-400',
+  green:  'text-green-400',
+  gray:   'text-gray-400',
+};
+
+const SummaryCard = ({ label, count, color, icon: Icon }: Props) => (
   <div className={`rounded-xl border p-5 flex flex-col gap-1 ${colorMap[color]}`}>
-    <span className="text-sm font-medium">{label}</span>
+    <div className="flex items-center justify-between">
+      <span className="text-sm font-medium">{label}</span>
+      {Icon && <Icon className={`w-5 h-5 ${iconColor[color]}`} />}
+    </div>
     <span className={`text-4xl font-bold ${countColor[color]}`}>{count}</span>
   </div>
 );

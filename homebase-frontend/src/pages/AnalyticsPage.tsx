@@ -4,6 +4,11 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend, LineChart, Line,
 } from 'recharts';
+import {
+  ClipboardDocumentListIcon,
+  CheckCircleIcon,
+  ClockIcon,
+} from '@heroicons/react/24/outline';
 import { getAnalyticsSummary } from '../api/analytics';
 import type { AnalyticsSummary } from '../api/analytics';
 import Navbar from '../components/Navbar';
@@ -69,16 +74,25 @@ const AnalyticsPage = () => {
         {/* Stat cards */}
         <div className="grid grid-cols-3 gap-4 mb-8">
           <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <p className="text-sm text-gray-500">Total Requests</p>
-            <p className="text-4xl font-bold text-gray-900 mt-1">{data.totalRequests}</p>
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-sm text-gray-500">Total Requests</p>
+              <ClipboardDocumentListIcon className="w-5 h-5 text-gray-400" />
+            </div>
+            <p className="text-4xl font-bold text-gray-900">{data.totalRequests}</p>
           </div>
           <div className="bg-green-50 rounded-xl border border-green-200 p-5">
-            <p className="text-sm font-medium text-green-700">Resolved</p>
-            <p className="text-4xl font-bold text-green-800 mt-1">{resolvedCount}</p>
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-sm font-medium text-green-700">Resolved</p>
+              <CheckCircleIcon className="w-5 h-5 text-green-400" />
+            </div>
+            <p className="text-4xl font-bold text-green-800">{resolvedCount}</p>
           </div>
           <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <p className="text-sm text-gray-500">Avg Resolution Time</p>
-            <p className="text-4xl font-bold text-blue-600 mt-1">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-sm text-gray-500">Avg Resolution Time</p>
+              <ClockIcon className="w-5 h-5 text-blue-400" />
+            </div>
+            <p className="text-4xl font-bold text-blue-600">
               {data.avgResolutionHours > 0 ? `${data.avgResolutionHours}h` : 'N/A'}
             </p>
           </div>

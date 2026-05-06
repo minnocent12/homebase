@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import {
+  FolderOpenIcon,
+  ArrowPathIcon,
+  CheckCircleIcon,
+  ClipboardDocumentListIcon,
+} from '@heroicons/react/24/outline';
 import { getSummary, getRequests } from '../api/requests';
 import type { DashboardSummary, Request } from '../types';
 import SummaryCard from '../components/SummaryCard';
@@ -62,10 +68,10 @@ const DashboardPage = () => {
           </div>
         ) : summary && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <SummaryCard label="Open"        count={summary.open}       color="blue"   />
-            <SummaryCard label="In Progress" count={summary.inProgress} color="yellow" />
-            <SummaryCard label="Resolved"    count={summary.resolved}   color="green"  />
-            <SummaryCard label="Total"       count={summary.total}      color="gray"   />
+            <SummaryCard label="Open"        count={summary.open}       color="blue"   icon={FolderOpenIcon}             />
+            <SummaryCard label="In Progress" count={summary.inProgress} color="yellow" icon={ArrowPathIcon}              />
+            <SummaryCard label="Resolved"    count={summary.resolved}   color="green"  icon={CheckCircleIcon}            />
+            <SummaryCard label="Total"       count={summary.total}      color="gray"   icon={ClipboardDocumentListIcon}  />
           </div>
         )}
 

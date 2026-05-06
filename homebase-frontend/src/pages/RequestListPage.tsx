@@ -12,40 +12,47 @@ const RequestListPage = () => {
   const [total, setTotal]       = useState(0);
   const [loading, setLoading]   = useState(true);
 
-  // Filters — initialise status from ?status= query param (e.g. from dashboard cards)
-  const [keyword, setKeyword]   = useState('');
-  const [status, setStatus]     = useState(searchParams.get('status') ?? '');
-  const [priority, setPriority] = useState('');
-  const [category, setCategory] = useState('');
+  // Filters
+  const [keyword, setKeyword]               = useState('');
+  const [debouncedKeyword, setDebouncedKeyword] = useState('');
+  const [status, setStatus]                 = useState(searchParams.get('status') ?? '');
+  const [priority, setPriority]             = useState('');
+  const [category, setCategory]             = useState('');
 
   // Pagination
-  const [page, setPage]         = useState(0);
+  const [page, setPage] = useState(0);
   const size = 10;
 
-  const load = async () => {
-    setLoading(true);
-    try {
-      const res = await getRequests({
-        keyword:  keyword  || undefined,
-        status:   status   || undefined,
-        priority: priority || undefined,
-        category: category || undefined,
-        page, size,
-        sortBy: 'createdAt', sortDir: 'desc',
-      });
-      setRequests(res.content);
-      setTotal(res.totalElements);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Debounce keyword — waits 400ms after user stops typing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedKeyword(keyword);
+      setPage(0);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [keyword]);
 
-  useEffect(() => { load(); }, [page, status, priority, category]);
-
-  // Search on Enter key
-  const handleSearch = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') { setPage(0); load(); }
-  };
+  // Reload whenever any filter or page changes
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const res = await getRequests({
+          keyword:  debouncedKeyword || undefined,
+          status:   status          || undefined,
+          priority: priority        || undefined,
+          category: category        || undefined,
+          page, size,
+          sortBy: 'createdAt', sortDir: 'desc',
+        });
+        setRequests(res.content);
+        setTotal(res.totalElements);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [page, status, priority, category, debouncedKeyword]);
 
   const handleStatusChange = async (id: string, newStatus: RequestStatus) => {
     await updateRequest(id, { status: newStatus });
@@ -83,7 +90,6 @@ const RequestListPage = () => {
             placeholder="Search requests..."
             value={keyword}
             onChange={e => setKeyword(e.target.value)}
-            onKeyDown={handleSearch}
             className="flex-1 min-w-48 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <select value={status} onChange={e => { setStatus(e.target.value); setPage(0); }}

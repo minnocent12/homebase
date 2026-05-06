@@ -18,3 +18,4 @@ export interface Page<T> { content: T[]; totalElements: number; totalPages: numb
 export interface DashboardSummary { open: number; inProgress: number; resolved: number; total: number; }
 
 export interface Comment { id: string; requestId: string; userId: string; userName: string; userRole: string; body: string; createdAt: string; }
+export interface StatusHistoryEntry { id: string; oldStatus: string | null; newStatus: string; changedByName: string; changedByRole: string; changedAt: string; }

@@ -2,6 +2,7 @@ package com.homebase.homebase_backend.request;
 
 import com.homebase.homebase_backend.request.dto.CreateRequestDto;
 import com.homebase.homebase_backend.request.dto.RequestResponseDto;
+import com.homebase.homebase_backend.request.dto.StatusHistoryResponseDto;
 import com.homebase.homebase_backend.request.dto.UpdateRequestDto;
 import com.homebase.homebase_backend.user.User;
 import com.homebase.homebase_backend.user.UserRepository;
@@ -14,6 +15,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -21,6 +23,7 @@ import java.util.UUID;
 public class RequestService {
 
     private final RequestRepository requestRepository;
+    private final StatusHistoryRepository statusHistoryRepository;
     private final UserRepository userRepository;
 
     // ── Create ───────────────────────────────────────────────
@@ -35,7 +38,16 @@ public class RequestService {
                 .createdBy(currentUser)
                 .build();
 
-        return RequestResponseDto.from(requestRepository.save(request));
+        Request saved = requestRepository.save(request);
+
+        statusHistoryRepository.save(StatusHistory.builder()
+                .request(saved)
+                .changedBy(currentUser)
+                .oldStatus(null)
+                .newStatus(RequestStatus.OPEN.name())
+                .build());
+
+        return RequestResponseDto.from(saved);
     }
 
     // ── Get All (RBAC aware, all filters combined with AND) ──────
@@ -98,9 +110,21 @@ public class RequestService {
 
         if (dto.getTitle() != null)       request.setTitle(dto.getTitle());
         if (dto.getDescription() != null) request.setDescription(dto.getDescription());
-        if (dto.getStatus() != null)      request.setStatus(RequestStatus.valueOf(dto.getStatus().toUpperCase()));
         if (dto.getPriority() != null)    request.setPriority(RequestPriority.valueOf(dto.getPriority().toUpperCase()));
         if (dto.getCategory() != null)    request.setCategory(RequestCategory.valueOf(dto.getCategory().toUpperCase()));
+
+        if (dto.getStatus() != null) {
+            RequestStatus newStatus = RequestStatus.valueOf(dto.getStatus().toUpperCase());
+            if (newStatus != request.getStatus()) {
+                statusHistoryRepository.save(StatusHistory.builder()
+                        .request(request)
+                        .changedBy(currentUser)
+                        .oldStatus(request.getStatus().name())
+                        .newStatus(newStatus.name())
+                        .build());
+                request.setStatus(newStatus);
+            }
+        }
 
         if (dto.getAssignedToId() != null) {
             User assignee = userRepository.findById(UUID.fromString(dto.getAssignedToId()))
@@ -143,6 +167,17 @@ public class RequestService {
                 .resolved(requestRepository.countByStatus(RequestStatus.RESOLVED))
                 .total(requestRepository.count())
                 .build();
+    }
+
+    // ── Status History ───────────────────────────────────────
+    @Transactional(readOnly = true)
+    public List<StatusHistoryResponseDto> getHistory(UUID id, User currentUser) {
+        Request request = findOrThrow(id);
+        enforceViewAccess(request, currentUser);
+        return statusHistoryRepository.findByRequestIdOrderByChangedAtAsc(id)
+                .stream()
+                .map(StatusHistoryResponseDto::from)
+                .toList();
     }
 
     // ── Helpers ──────────────────────────────────────────────

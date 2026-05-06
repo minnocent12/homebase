@@ -2,6 +2,7 @@ package com.homebase.homebase_backend.request;
 
 import com.homebase.homebase_backend.request.dto.CreateRequestDto;
 import com.homebase.homebase_backend.request.dto.RequestResponseDto;
+import com.homebase.homebase_backend.request.dto.StatusHistoryResponseDto;
 import com.homebase.homebase_backend.request.dto.UpdateRequestDto;
 import com.homebase.homebase_backend.user.User;
 import jakarta.validation.Valid;
@@ -16,6 +17,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -94,5 +96,14 @@ public class RequestController {
     ) {
         requestService.delete(id, currentUser);
         return ResponseEntity.noContent().build();
+    }
+
+    // GET /api/requests/{id}/history
+    @GetMapping("/{id}/history")
+    public ResponseEntity<List<StatusHistoryResponseDto>> getHistory(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal User currentUser
+    ) {
+        return ResponseEntity.ok(requestService.getHistory(id, currentUser));
     }
 }

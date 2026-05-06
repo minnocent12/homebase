@@ -5,6 +5,7 @@ import type {
   UpdateRequestPayload,
   Page,
   DashboardSummary,
+  StatusHistoryEntry,
 } from '../types';
 
 // POST /api/requests
@@ -46,5 +47,11 @@ export const updateRequest = async (
 // GET /api/requests/summary
 export const getSummary = async (): Promise<DashboardSummary> => {
   const res = await api.get<DashboardSummary>('/api/requests/summary');
+  return res.data;
+};
+
+// GET /api/requests/:id/history
+export const getStatusHistory = async (id: string): Promise<StatusHistoryEntry[]> => {
+  const res = await api.get<StatusHistoryEntry[]>(`/api/requests/${id}/history`);
   return res.data;
 };

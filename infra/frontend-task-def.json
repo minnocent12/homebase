@@ -1,0 +1,26 @@
+{
+  "family": "homebase-frontend",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::938533114375:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "homebase-frontend",
+      "image": "938533114375.dkr.ecr.us-east-2.amazonaws.com/homebase-frontend:latest",
+      "essential": true,
+      "portMappings": [
+        { "containerPort": 80, "protocol": "tcp" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/homebase-frontend",
+          "awslogs-region": "us-east-2",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}

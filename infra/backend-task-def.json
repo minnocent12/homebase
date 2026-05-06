@@ -1,0 +1,33 @@
+{
+  "family": "homebase-backend",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::938533114375:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "homebase-backend",
+      "image": "938533114375.dkr.ecr.us-east-2.amazonaws.com/homebase-backend:latest",
+      "essential": true,
+      "portMappings": [
+        { "containerPort": 8080, "protocol": "tcp" }
+      ],
+      "environment": [
+        { "name": "SPRING_PROFILES_ACTIVE", "value": "prod" },
+        { "name": "DATABASE_URL",  "value": "jdbc:postgresql://homebase-db.cl0628a2exui.us-east-2.rds.amazonaws.com:5432/homebase_prod" },
+        { "name": "DATABASE_USER", "value": "postgres" },
+        { "name": "DATABASE_PASSWORD", "value": "HomeBase2026Rds" },
+        { "name": "JWT_SECRET", "value": "homebase-super-secret-key-for-prod-only-32ch" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/homebase-backend",
+          "awslogs-region": "us-east-2",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}

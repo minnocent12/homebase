@@ -42,8 +42,8 @@ Built as a showcase project for the **Home Depot Software Engineering Internship
 | HTTP Client | Axios | 1.7 |
 | Routing | React Router | v7 |
 | Build (backend) | Maven | 3.9+ |
-| DevOps | Docker Compose, GitHub Actions CI/CD | planned |
-| Cloud | AWS ECS + RDS | planned |
+| DevOps | Docker Compose, GitHub Actions CI/CD | |
+| Cloud | AWS ECS + RDS | |
 
 ---
 
@@ -64,10 +64,11 @@ Built as a showcase project for the **Home Depot Software Engineering Internship
 - **Request detail page** — full view of a single request with metadata, status/priority badges, and activity log
 - **Analytics dashboard** — bar, pie, and line charts for category, status, priority breakdowns and 7-day trend; MANAGER/ADMIN only
 
+- **Docker Compose** — full-stack local setup (`docker-compose up --build`)
+- **GitHub Actions CI/CD** — backend test + frontend build + deploy to AWS ECS on push to `main`
+
 ### Coming Soon
 - Email notification simulation
-- Docker Compose full-stack setup
-- GitHub Actions CI/CD pipeline
 - AWS ECS + RDS deployment
 
 ---
@@ -131,34 +132,41 @@ cd homebase
 psql -U postgres -c "CREATE DATABASE homebase_dev;"
 ```
 
-### 3. Configure environment variables
+### 3. Start the backend
 
-```bash
-# Windows (PowerShell)
-$env:JWT_SECRET = "your-secret-key-at-least-32-characters-long"
-
-# macOS / Linux
-export JWT_SECRET="your-secret-key-at-least-32-characters-long"
+```powershell
+# Windows — from the repo root
+.\run-backend.ps1
 ```
 
-### 4. Start the backend
-
 ```bash
-cd homebase-backend
-./mvnw spring-boot:run
+# macOS / Linux
+cd homebase-backend && ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
 API available at `http://localhost:8080`
 
-### 5. Start the frontend
+### 4. Start the frontend
+
+```powershell
+# Windows — from the repo root
+.\run-frontend.ps1
+```
 
 ```bash
-cd homebase-frontend
-npm install
-npm run dev
+# macOS / Linux
+cd homebase-frontend && npm install && npm run dev
 ```
 
 App available at `http://localhost:5173`
+
+### Run everything at once (Windows)
+
+```powershell
+.\run-all.ps1
+```
+
+Opens the backend and frontend each in their own terminal window.
 
 ---
 
@@ -228,7 +236,7 @@ App available at `http://localhost:5173`
 
 | Variable | Description | Required |
 |---|---|---|
-| `JWT_SECRET` | Signing key for JWT tokens — minimum 32 characters | Always |
+| `JWT_SECRET` | Signing key for JWT tokens — minimum 32 characters | Production only (dev has a built-in default) |
 | `DATABASE_URL` | PostgreSQL JDBC URL | Production only |
 | `DATABASE_USER` | Database username | Production only |
 | `DATABASE_PASSWORD` | Database password | Production only |

@@ -127,8 +127,14 @@ src/
 
 ### Install and run
 
+```powershell
+# Windows — from the repo root (installs on first run only)
+.\run-frontend.ps1
+```
+
 ```bash
-npm install
+# macOS / Linux
+npm install  # first time only
 npm run dev
 ```
 

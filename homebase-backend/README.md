@@ -236,20 +236,16 @@ PostgreSQL 17+ — Flyway manages all migrations.
 psql -U postgres -c "CREATE DATABASE homebase_dev;"
 ```
 
-### 2. Set the JWT secret
+### 2. Run the application
 
-```bash
-# Windows (PowerShell)
-$env:JWT_SECRET = "your-secret-key-at-least-32-characters-long"
-
-# macOS / Linux
-export JWT_SECRET="your-secret-key-at-least-32-characters-long"
+```powershell
+# Windows — from the repo root
+.\run-backend.ps1
 ```
 
-### 3. Run the application
-
 ```bash
-./mvnw spring-boot:run
+# macOS / Linux
+cd homebase-backend && ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
 API is available at `http://localhost:8080`. Flyway runs migrations automatically on startup.
@@ -266,12 +262,12 @@ API is available at `http://localhost:8080`. Flyway runs migrations automaticall
 
 | Variable | Description | Required |
 |---|---|---|
-| `JWT_SECRET` | Signing key for JWT tokens — minimum 32 characters | Always |
+| `JWT_SECRET` | Signing key for JWT tokens — minimum 32 characters | Production only (dev has a built-in default) |
 | `DATABASE_URL` | PostgreSQL JDBC URL (e.g. `jdbc:postgresql://host:5432/db`) | Production |
 | `DATABASE_USER` | Database username | Production |
 | `DATABASE_PASSWORD` | Database password | Production |
 
-> Dev profile uses `localhost:5432/homebase_dev` with credentials from `application-dev.yml`. Production reads from environment variables only.
+> Dev profile uses `localhost:5432/homebase_dev` with hardcoded credentials and a built-in JWT secret — no env vars needed locally. Production reads all values from environment variables only.
 
 ---
 

@@ -38,8 +38,7 @@ const AnalyticsPage = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  const resolvedCount = data?.byStatus.find(s => s.name === 'OPEN' === false && s.name === 'RESOLVED')?.value
-    ?? data?.byStatus.find(s => s.name === 'RESOLVED')?.value ?? 0;
+  const resolvedCount = data?.byStatus.find(s => s.name === 'RESOLVED')?.value ?? 0;
 
   if (loading) return (
     <div className="min-h-screen bg-gray-50">
@@ -73,9 +72,9 @@ const AnalyticsPage = () => {
             <p className="text-sm text-gray-500">Total Requests</p>
             <p className="text-4xl font-bold text-gray-900 mt-1">{data.totalRequests}</p>
           </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <p className="text-sm text-gray-500">Resolved</p>
-            <p className="text-4xl font-bold text-green-600 mt-1">{resolvedCount}</p>
+          <div className="bg-green-50 rounded-xl border border-green-200 p-5">
+            <p className="text-sm font-medium text-green-700">Resolved</p>
+            <p className="text-4xl font-bold text-green-800 mt-1">{resolvedCount}</p>
           </div>
           <div className="bg-white rounded-xl border border-gray-200 p-5">
             <p className="text-sm text-gray-500">Avg Resolution Time</p>

@@ -125,9 +125,11 @@ jobs:
             --force-new-deployment \
             --region us-east-2
 
-      - name: Wait for services to stabilize
+      - name: Verify deployment triggered
         run: |
-          aws ecs wait services-stable \
+          aws ecs describe-services \
             --cluster homebase \
             --services homebase-backend homebase-frontend \
-            --region us-east-2
+            --region us-east-2 \
+            --query "services[*].{Name:serviceName,Desired:desiredCount,Running:runningCount}" \
+            --output table

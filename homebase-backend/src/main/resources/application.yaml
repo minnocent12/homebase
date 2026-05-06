@@ -14,7 +14,7 @@ spring:
 
 app:
   jwt:
-    secret: ${JWT_SECRET}       # set in env; min 32 chars
+    secret: ${JWT_SECRET:homebase-super-secret-key-for-dev-only-32chars}
     access-token-expiry-ms: 900000      # 15 min
     refresh-token-expiry-ms: 604800000  # 7 days
 

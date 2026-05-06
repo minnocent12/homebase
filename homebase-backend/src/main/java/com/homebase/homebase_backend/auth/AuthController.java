@@ -2,6 +2,7 @@ package com.homebase.homebase_backend.auth;
 
 import com.homebase.homebase_backend.auth.dto.AuthResponse;
 import com.homebase.homebase_backend.auth.dto.LoginRequest;
+import com.homebase.homebase_backend.auth.dto.RefreshRequest;
 import com.homebase.homebase_backend.auth.dto.RegisterRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,15 @@ public class AuthController {
             @Valid @RequestBody LoginRequest request
     ) {
         AuthResponse response = authService.login(request);
+        return ResponseEntity.ok(response);
+    }
+
+    // POST /api/auth/refresh
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthResponse> refresh(
+            @Valid @RequestBody RefreshRequest request
+    ) {
+        AuthResponse response = authService.refresh(request);
         return ResponseEntity.ok(response);
     }
 }

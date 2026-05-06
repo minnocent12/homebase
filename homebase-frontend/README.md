@@ -4,9 +4,19 @@ React + TypeScript SPA for the HomeBase Store Support Center Portal.
 
 ---
 
+## Live Deployment
+
+| Environment | URL |
+|---|---|
+| Production (AWS) | http://homebase-alb-2128858486.us-east-2.elb.amazonaws.com |
+| Local (Docker) | http://localhost |
+| Local (Dev) | http://localhost:5173 |
+
+---
+
 ## Overview
 
-The frontend is a single-page application built with React 19, TypeScript, Vite, and Tailwind CSS. It communicates with the Spring Boot backend at `http://localhost:8080` via Axios, enforces role-based UI visibility, and manages authentication state globally with React Context + localStorage.
+The frontend is a single-page application built with React 19, TypeScript, Vite, and Tailwind CSS. It communicates with the Spring Boot backend via relative `/api/` paths — proxied to the backend by nginx (Docker/AWS) or Vite's dev proxy (local). Auth state is managed globally with React Context + localStorage.
 
 ---
 
@@ -69,7 +79,7 @@ The frontend is a single-page application built with React 19, TypeScript, Vite,
 ```
 src/
 ├── api/
-│   ├── axios.ts          # Axios instance — base URL + Authorization header injection
+│   ├── axios.ts          # Axios instance — empty baseURL (relative paths) + Authorization header injection
 │   ├── requests.ts       # Typed API functions: createRequest, getRequests, updateRequest, deleteRequest, getSummary
 │   ├── comments.ts       # getComments(requestId), addComment(requestId, body)
 │   └── analytics.ts      # getAnalyticsSummary() — ChartEntry and AnalyticsSummary types
@@ -121,11 +131,23 @@ src/
 
 ## Setup
 
-### Prerequisites
+### Option 1 — Docker (recommended)
+
+From the repo root — runs PostgreSQL, backend, and frontend together:
+
+```bash
+docker-compose up --build
+```
+
+App available at `http://localhost`. The frontend image uses a multi-stage Dockerfile: Node builds the Vite bundle in a `node:20-alpine` stage, then the static files are served by `nginx:alpine`. The included `nginx.conf` handles SPA routing (`try_files`) and proxies all `/api/` traffic to the backend.
+
+### Option 2 — Local development
+
+#### Prerequisites
 - Node.js 18+
 - Backend API running at `http://localhost:8080`
 
-### Install and run
+#### Install and run
 
 ```powershell
 # Windows — from the repo root (installs on first run only)
@@ -153,7 +175,10 @@ App runs at `http://localhost:5173`.
 
 ## Environment
 
-The backend URL is hardcoded in `src/api/axios.ts` as `http://localhost:8080`. To point at a different API, update that base URL before building.
+The Axios instance in [src/api/axios.ts](src/api/axios.ts) uses an empty string `''` as `baseURL`, so all API calls use relative paths (e.g. `/api/auth/login`).
+
+- **Local dev** — Vite's dev server proxies `/api/` to `http://localhost:8080` (configured in `vite.config.ts`)
+- **Docker / AWS** — nginx proxies `/api/` to the backend container (Docker Compose: `backend:8080`; AWS: ALB DNS name via VPC resolver)
 
 ---
 

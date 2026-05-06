@@ -10,6 +10,16 @@ This is the backend service for HomeBase. It provides a secure JWT-authenticated
 
 ---
 
+## Live Deployment
+
+| Environment | URL |
+|---|---|
+| Production (AWS) | http://homebase-alb-2128858486.us-east-2.elb.amazonaws.com/api |
+| Local (Docker) | http://localhost/api |
+| Local (Dev) | http://localhost:8080/api |
+
+---
+
 ## Tech Stack
 
 | Component | Technology | Version |
@@ -21,6 +31,8 @@ This is the backend service for HomeBase. It provides a secure JWT-authenticated
 | Database | PostgreSQL | 17+ |
 | Schema migrations | Flyway | via Spring Boot |
 | Build | Maven | 3.9+ |
+| Containerization | Docker (multi-stage build) | |
+| Cloud | AWS ECS Fargate + RDS PostgreSQL | us-east-2 |
 
 ---
 
@@ -219,24 +231,38 @@ PostgreSQL 17+ — Flyway manages all migrations.
 - **Passwords** — hashed with bcrypt via Spring Security's `PasswordEncoder`
 - **Public routes** — `/api/auth/register` and `/api/auth/login` are unauthenticated; all others require a valid Bearer token
 - **RBAC** — `RequestService` enforces role checks at the service layer; `@PreAuthorize` annotations guard update (MANAGER/ADMIN) and delete (ADMIN) endpoints; `AnalyticsController` restricts analytics to MANAGER/ADMIN
-- **CORS** — `localhost:5173` allowed in dev profile; tightened in prod
+- **CORS** — `localhost:5173` allowed in dev profile; in Docker and AWS the frontend nginx proxy forwards `/api/` requests to the backend, so browser requests always originate from the same origin and CORS is not involved
 
 ---
 
 ## Setup
 
-### Prerequisites
+### Option 1 — Docker (recommended)
+
+Runs the full stack (PostgreSQL + backend + frontend) with one command from the repo root. Requires Docker Desktop.
+
+```bash
+docker-compose up --build
+```
+
+API available at `http://localhost/api`
+
+The backend image uses a multi-stage Dockerfile: Maven builds the fat JAR in a `maven:3.9-eclipse-temurin-17` stage, then the JAR is copied into a minimal `eclipse-temurin:17-jre-alpine` runtime image.
+
+### Option 2 — Local development
+
+#### Prerequisites
 - Java 17+
 - Maven 3.9+
 - PostgreSQL 17+ running locally
 
-### 1. Create the database
+#### 1. Create the database
 
 ```bash
 psql -U postgres -c "CREATE DATABASE homebase_dev;"
 ```
 
-### 2. Run the application
+#### 2. Run the application
 
 ```powershell
 # Windows — from the repo root
@@ -276,8 +302,10 @@ API is available at `http://localhost:8080`. Flyway runs migrations automaticall
 | Profile | When used | DB config |
 |---|---|---|
 | `dev` (default) | Local development | `localhost:5432/homebase_dev` |
-| `prod` | Deployed environment | Reads `DATABASE_URL`, `DATABASE_USER`, `DATABASE_PASSWORD` from env |
-| `test` | Test runs | Isolated test database |
+| `prod` | Docker Compose + AWS ECS | Reads `DATABASE_URL`, `DATABASE_USER`, `DATABASE_PASSWORD` from env |
+| `test` | CI test runs | Isolated test database (injected by GitHub Actions) |
+
+> Docker Compose and AWS ECS both run the `prod` profile and inject all database and JWT credentials via environment variables.
 
 ---
 

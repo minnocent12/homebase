@@ -1,6 +1,8 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import type { ReactNode } from 'react';
+import { useCallback } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { useInactivityTimer } from './hooks/useInactivityTimer';
+import SessionWarningBanner   from './components/SessionWarningBanner';
 import LoginPage         from './pages/LoginPage';
 import DashboardPage     from './pages/DashboardPage';
 import RequestListPage   from './pages/RequestListPage';
@@ -8,10 +10,38 @@ import CreateRequestPage from './pages/CreateRequestPage';
 import RequestDetailPage from './pages/RequestDetailPage';
 import AnalyticsPage     from './pages/AnalyticsPage';
 
-// ── Protected route wrapper ───────────────────────────────────
-const Protected = ({ children }: { children: ReactNode }) => {
-  const { isAuthenticated } = useAuth();
-  return isAuthenticated ? children : <Navigate to="/login" replace />;
+// ── Auth + inactivity guard for all protected routes ──────────
+const RequireAuth = () => {
+  const { isAuthenticated, logout, refreshSession } = useAuth();
+  const navigate = useNavigate();
+
+  const handleTimeout = useCallback(() => {
+    logout();
+    navigate('/login');
+  }, [logout, navigate]);
+
+  const { showWarning, secondsLeft, resetTimer } = useInactivityTimer(handleTimeout);
+
+  const handleStayLoggedIn = async () => {
+    const ok = await refreshSession();
+    if (ok) resetTimer();
+    else navigate('/login');
+  };
+
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+
+  return (
+    <>
+      <Outlet />
+      {showWarning && (
+        <SessionWarningBanner
+          secondsLeft={secondsLeft}
+          onStayLoggedIn={handleStayLoggedIn}
+          onLogout={handleTimeout}
+        />
+      )}
+    </>
+  );
 };
 
 // ── App ───────────────────────────────────────────────────────
@@ -22,22 +52,14 @@ const App = () => (
         {/* Public */}
         <Route path="/login" element={<LoginPage />} />
 
-        {/* Protected */}
-        <Route path="/dashboard" element={
-          <Protected><DashboardPage /></Protected>
-        } />
-        <Route path="/requests" element={
-          <Protected><RequestListPage /></Protected>
-        } />
-        <Route path="/requests/new" element={
-          <Protected><CreateRequestPage /></Protected>
-        } />
-        <Route path="/requests/:id" element={
-          <Protected><RequestDetailPage /></Protected>
-        } />
-        <Route path="/analytics" element={
-          <Protected><AnalyticsPage /></Protected>
-        } />
+        {/* Protected — all share one inactivity timer */}
+        <Route element={<RequireAuth />}>
+          <Route path="/dashboard"    element={<DashboardPage />} />
+          <Route path="/requests"     element={<RequestListPage />} />
+          <Route path="/requests/new" element={<CreateRequestPage />} />
+          <Route path="/requests/:id" element={<RequestDetailPage />} />
+          <Route path="/analytics"    element={<AnalyticsPage />} />
+        </Route>
 
         {/* Default redirect */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

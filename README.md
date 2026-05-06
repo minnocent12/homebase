@@ -12,6 +12,16 @@ Built as a showcase project for the **Home Depot Software Engineering Internship
 
 ---
 
+## Live Deployment
+
+| Environment | URL |
+|---|---|
+| Production (AWS) | http://homebase-alb-2128858486.us-east-2.elb.amazonaws.com |
+| Local (Docker) | http://localhost |
+| Local (Dev) | http://localhost:5173 |
+
+---
+
 ## Screenshots
 
 | Login | Dashboard |
@@ -42,14 +52,14 @@ Built as a showcase project for the **Home Depot Software Engineering Internship
 | HTTP Client | Axios | 1.7 |
 | Routing | React Router | v7 |
 | Build (backend) | Maven | 3.9+ |
-| DevOps | Docker Compose, GitHub Actions CI/CD | |
-| Cloud | AWS ECS + RDS | |
+| Containerization | Docker, Docker Compose | |
+| CI/CD | GitHub Actions | |
+| Cloud | AWS ECS Fargate + RDS PostgreSQL | us-east-2 |
 
 ---
 
 ## Features
 
-### Complete
 - JWT authentication — register, login, access + refresh token flow
 - Role-based users — ASSOCIATE, MANAGER, ADMIN
 - Create operational requests with title, description, priority, and category
@@ -58,18 +68,13 @@ Built as a showcase project for the **Home Depot Software Engineering Internship
 - Dashboard with live summary cards (Open, In Progress, Resolved, Total)
 - Protected routes — unauthenticated users redirected to login
 - Persistent sessions — JWT stored in localStorage survives page refresh
-- CORS configured for local development
 - **RBAC** — Associates see and manage only their own requests; Managers can view and update all; Admins have full access including delete
 - **Comments & activity log** — threaded comments per request with user name, role badge, and timestamp
 - **Request detail page** — full view of a single request with metadata, status/priority badges, and activity log
 - **Analytics dashboard** — bar, pie, and line charts for category, status, priority breakdowns and 7-day trend; MANAGER/ADMIN only
-
-- **Docker Compose** — full-stack local setup (`docker-compose up --build`)
-- **GitHub Actions CI/CD** — backend test + frontend build + deploy to AWS ECS on push to `main`
-
-### Coming Soon
-- Email notification simulation
-- AWS ECS + RDS deployment
+- **Docker Compose** — full-stack local setup with one command (`docker-compose up --build`)
+- **GitHub Actions CI/CD** — backend tests + frontend build on every push; auto-deploys to AWS ECS on green builds to `main`
+- **AWS ECS Fargate + RDS** — containerized backend and frontend running on AWS with managed PostgreSQL
 
 ---
 
@@ -78,6 +83,8 @@ Built as a showcase project for the **Home Depot Software Engineering Internship
 ```
 homebase/
 ├── homebase-backend/               # Spring Boot REST API
+│   ├── Dockerfile                  # Multi-stage build — Maven → JRE Alpine
+│   ├── .dockerignore
 │   ├── src/main/java/com/homebase/
 │   │   ├── auth/                   # JWT auth — register, login
 │   │   │   ├── dto/
@@ -94,6 +101,9 @@ homebase/
 │       └── db/migration/           # Flyway SQL migrations (V1–V6)
 │
 ├── homebase-frontend/              # React + TypeScript SPA
+│   ├── Dockerfile                  # Multi-stage build — Node → nginx Alpine
+│   ├── .dockerignore
+│   ├── nginx.conf                  # SPA routing + /api/ proxy to backend via ALB
 │   └── src/
 │       ├── api/                    # Axios instance + typed API modules
 │       ├── components/             # Navbar, PriorityBadge, SummaryCard, RequestRow
@@ -102,6 +112,15 @@ homebase/
 │       │                           #   CreateRequest, Analytics
 │       └── types/                  # TypeScript interfaces
 │
+├── infra/                          # AWS ECS task definitions
+│   ├── backend-task-def.json       # ECS Fargate task definition — Spring Boot
+│   └── frontend-task-def.json      # ECS Fargate task definition — nginx
+│
+├── .github/
+│   └── workflows/
+│       └── ci.yml                  # CI: test + build; CD: push to ECR + deploy to ECS
+│
+├── docker-compose.yml              # Runs PostgreSQL + backend + frontend locally
 └── docs/
     └── screenshots/                # App screenshots
 ```
@@ -110,7 +129,22 @@ homebase/
 
 ## Getting Started
 
-### Prerequisites
+### Option 1 — Docker (recommended)
+
+Runs the full stack with one command. Requires Docker Desktop.
+
+```bash
+git clone https://github.com/minnocent12/homebase.git
+cd homebase
+docker-compose up --build
+```
+
+App available at `http://localhost`
+API available at `http://localhost/api`
+
+### Option 2 — Local development
+
+#### Prerequisites
 
 | Tool | Version |
 |---|---|
@@ -119,20 +153,20 @@ homebase/
 | PostgreSQL | 17+ |
 | Node.js | 18+ |
 
-### 1. Clone the repository
+#### 1. Clone the repository
 
 ```bash
 git clone https://github.com/minnocent12/homebase.git
 cd homebase
 ```
 
-### 2. Set up the database
+#### 2. Set up the database
 
 ```bash
 psql -U postgres -c "CREATE DATABASE homebase_dev;"
 ```
 
-### 3. Start the backend
+#### 3. Start the backend
 
 ```powershell
 # Windows — from the repo root
@@ -146,7 +180,7 @@ cd homebase-backend && ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
 
 API available at `http://localhost:8080`
 
-### 4. Start the frontend
+#### 4. Start the frontend
 
 ```powershell
 # Windows — from the repo root
@@ -160,13 +194,11 @@ cd homebase-frontend && npm install && npm run dev
 
 App available at `http://localhost:5173`
 
-### Run everything at once (Windows)
+#### Run everything at once (Windows)
 
 ```powershell
 .\run-all.ps1
 ```
-
-Opens the backend and frontend each in their own terminal window.
 
 ---
 
@@ -236,10 +268,35 @@ Opens the backend and frontend each in their own terminal window.
 
 | Variable | Description | Required |
 |---|---|---|
-| `JWT_SECRET` | Signing key for JWT tokens — minimum 32 characters | Production only (dev has a built-in default) |
+| `JWT_SECRET` | Signing key for JWT tokens — minimum 32 characters | Production only |
 | `DATABASE_URL` | PostgreSQL JDBC URL | Production only |
 | `DATABASE_USER` | Database username | Production only |
 | `DATABASE_PASSWORD` | Database password | Production only |
+
+> Dev profile uses `localhost:5432/homebase_dev` with hardcoded credentials — no env vars needed locally. Docker Compose and AWS ECS inject all values via environment variables using the `prod` Spring profile.
+
+---
+
+## CI/CD Pipeline
+
+Every push to `main` triggers the GitHub Actions workflow:
+
+```
+push to main
+     ↓
+Backend — Build & Test    Frontend — Build
+(mvn test + Postgres)     (npm ci + vite build)
+     ↓                         ↓
+     └──────── both pass ───────┘
+                    ↓
+           Build Docker images
+                    ↓
+           Push to AWS ECR
+                    ↓
+         Deploy to AWS ECS Fargate
+```
+
+Secrets required in GitHub repository settings: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`.
 
 ---
 

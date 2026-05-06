@@ -2,6 +2,7 @@ package com.homebase.homebase_backend.auth;
 
 import com.homebase.homebase_backend.auth.dto.AuthResponse;
 import com.homebase.homebase_backend.auth.dto.LoginRequest;
+import com.homebase.homebase_backend.auth.dto.RefreshRequest;
 import com.homebase.homebase_backend.auth.dto.RegisterRequest;
 import com.homebase.homebase_backend.auth.jwt.JwtUtil;
 import com.homebase.homebase_backend.user.User;
@@ -61,6 +62,25 @@ public class AuthService {
 
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        return buildAuthResponse(user);
+    }
+
+    // ── Refresh ──────────────────────────────────────────────
+    public AuthResponse refresh(RefreshRequest request) {
+        String email;
+        try {
+            email = jwtUtil.extractUsername(request.getRefreshToken());
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid refresh token");
+        }
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        if (!jwtUtil.isTokenValid(request.getRefreshToken(), user)) {
+            throw new IllegalArgumentException("Refresh token expired");
+        }
 
         return buildAuthResponse(user);
     }

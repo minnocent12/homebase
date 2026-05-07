@@ -109,7 +109,7 @@ const TeamManagementPage = () => {
                         <h2 className="font-semibold text-gray-900">{team.name}</h2>
                         <p className="text-xs text-gray-500 mt-0.5">{team.description}</p>
                       </div>
-                      <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${categoryColors[team.category] ?? 'bg-gray-100 text-gray-600'}`}>
+                      <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${categoryColors[team.category ?? ''] ?? 'bg-gray-100 text-gray-600'}`}>
                         {team.category}
                       </span>
                     </div>

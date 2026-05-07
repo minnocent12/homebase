@@ -31,7 +31,7 @@ interface ModalProps {
   onCreated: (user: UserSummary) => void;
 }
 
-const CreateUserModal = ({ isAdmin, managerTeam, managerTeamName, teams, onClose, onCreated }: ModalProps) => {
+const CreateUserModal = ({ isAdmin, managerTeamName, teams, onClose, onCreated }: ModalProps) => {
   const [form, setForm] = useState<CreateUserPayload>({
     fullName: '', email: '', password: '', role: 'ASSOCIATE', teamId: null,
   });

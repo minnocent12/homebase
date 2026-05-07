@@ -20,6 +20,9 @@ export const getRequests = async (params?: {
   priority?: string;
   category?: string;
   keyword?: string;
+  assignedToId?: string;
+  dateFrom?: string;
+  dateTo?: string;
   page?: number;
   size?: number;
   sortBy?: string;

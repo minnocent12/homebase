@@ -2,9 +2,10 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const roleBadgeStyle: Record<string, string> = {
-  ADMIN:     'bg-red-100 text-red-700',
-  MANAGER:   'bg-purple-100 text-purple-700',
-  ASSOCIATE: 'bg-blue-100 text-blue-700',
+  ADMIN:      'bg-red-100 text-red-700',
+  MANAGER:    'bg-purple-100 text-purple-700',
+  TECHNICIAN: 'bg-teal-100 text-teal-700',
+  ASSOCIATE:  'bg-blue-100 text-blue-700',
 };
 
 const Navbar = () => {
@@ -17,6 +18,8 @@ const Navbar = () => {
   };
 
   const canViewAnalytics = user?.role === 'MANAGER' || user?.role === 'ADMIN';
+  const canManageUsers   = user?.role === 'MANAGER' || user?.role === 'ADMIN';
+  const isAdmin          = user?.role === 'ADMIN';
 
   return (
     <nav className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between sticky top-0 z-10 shadow-sm">
@@ -43,6 +46,18 @@ const Navbar = () => {
             <Link to="/analytics"
               className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
               Analytics
+            </Link>
+          )}
+          {canManageUsers && (
+            <Link to="/users"
+              className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
+              Users
+            </Link>
+          )}
+          {isAdmin && (
+            <Link to="/admin/teams"
+              className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
+              Teams
             </Link>
           )}
         </div>

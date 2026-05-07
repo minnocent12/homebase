@@ -44,6 +44,9 @@ public class RequestController {
             @RequestParam(required = false) String priority,
             @RequestParam(required = false) String category,
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String assignedToId,
+            @RequestParam(required = false) String dateFrom,
+            @RequestParam(required = false) String dateTo,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy,
@@ -55,7 +58,7 @@ public class RequestController {
                 : Sort.by(sortBy).descending();
         Pageable pageable = PageRequest.of(page, size, sort);
         return ResponseEntity.ok(
-                requestService.getAll(status, priority, category, keyword, pageable, currentUser)
+                requestService.getAll(status, priority, category, keyword, assignedToId, dateFrom, dateTo, pageable, currentUser)
         );
     }
 
@@ -76,9 +79,9 @@ public class RequestController {
         return ResponseEntity.ok(requestService.getById(id, currentUser));
     }
 
-    // PUT /api/requests/{id} — MANAGER + ADMIN only
+    // PUT /api/requests/{id} — fine-grained access enforced in service layer
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('MANAGER', 'ADMIN', 'TECHNICIAN')")
     public ResponseEntity<RequestResponseDto> update(
             @PathVariable UUID id,
             @RequestBody UpdateRequestDto dto,

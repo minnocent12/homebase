@@ -16,6 +16,7 @@ import java.util.UUID;
 public class RequestResponseDto {
 
     private UUID id;
+    private Integer requestNumber;
     private String title;
     private String description;
     private String status;
@@ -28,6 +29,9 @@ public class RequestResponseDto {
     private UUID assignedToId;
     private String assignedToName;
 
+    private UUID   teamId;
+    private String teamName;
+
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
 
@@ -35,6 +39,7 @@ public class RequestResponseDto {
     public static RequestResponseDto from(Request r) {
         return RequestResponseDto.builder()
                 .id(r.getId())
+                .requestNumber(r.getRequestNumber())
                 .title(r.getTitle())
                 .description(r.getDescription())
                 .status(r.getStatus().name())
@@ -44,6 +49,8 @@ public class RequestResponseDto {
                 .createdByName(r.getCreatedBy().getFullName())
                 .assignedToId(r.getAssignedTo() != null ? r.getAssignedTo().getId() : null)
                 .assignedToName(r.getAssignedTo() != null ? r.getAssignedTo().getFullName() : null)
+                .teamId(r.getTeam() != null ? r.getTeam().getId() : null)
+                .teamName(r.getTeam() != null ? r.getTeam().getName() : null)
                 .createdAt(r.getCreatedAt())
                 .updatedAt(r.getUpdatedAt())
                 .build();

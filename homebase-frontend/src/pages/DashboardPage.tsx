@@ -102,8 +102,16 @@ const DashboardPage = () => {
               {recent.map(r => (
                 <li key={r.id} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{r.title}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{r.category} · {r.createdByName}</p>
+                    <Link to={`/requests/${r.id}`} className="text-sm font-medium text-gray-900 truncate hover:text-blue-600 transition-colors block">
+                      {r.title}
+                    </Link>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      <span className="font-mono">REQ-{r.requestNumber}</span>
+                      <span className="text-gray-300 mx-1">·</span>
+                      {r.category}
+                      <span className="text-gray-300 mx-1">·</span>
+                      {r.createdByName}
+                    </p>
                   </div>
                   <div className="flex items-center gap-3 ml-4">
                     <PriorityBadge priority={r.priority} />

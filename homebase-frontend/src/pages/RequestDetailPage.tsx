@@ -21,9 +21,10 @@ const statusDot: Record<string, string> = {
 };
 
 const roleBadge: Record<string, string> = {
-  ADMIN:     'bg-red-100 text-red-700',
-  MANAGER:   'bg-purple-100 text-purple-700',
-  ASSOCIATE: 'bg-blue-100 text-blue-700',
+  ADMIN:      'bg-red-100 text-red-700',
+  MANAGER:    'bg-purple-100 text-purple-700',
+  TECHNICIAN: 'bg-teal-100 text-teal-700',
+  ASSOCIATE:  'bg-blue-100 text-blue-700',
 };
 
 // ── Timeline helpers ──────────────────────────────────────────
@@ -130,6 +131,11 @@ const RequestDetailPage = () => {
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mt-4 mb-6">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xs font-mono font-medium text-gray-400 bg-gray-100 px-2 py-0.5 rounded">
+                  REQ-{request.requestNumber}
+                </span>
+              </div>
               <h1 className="text-xl font-bold text-gray-900">{request.title}</h1>
               {request.description && (
                 <p className="text-gray-600 text-sm mt-2">{request.description}</p>
@@ -150,6 +156,8 @@ const RequestDetailPage = () => {
           <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-2 gap-3 text-xs text-gray-500">
             <div><span className="font-medium text-gray-700">Created by:</span> {request.createdByName}</div>
             <div><span className="font-medium text-gray-700">Assigned to:</span> {request.assignedToName ?? 'Unassigned'}</div>
+            <div><span className="font-medium text-gray-700">Team:</span> {request.teamName ?? '—'}</div>
+            <div><span className="font-medium text-gray-700">Category:</span> {request.category}</div>
             <div><span className="font-medium text-gray-700">Created:</span> {formatDate(request.createdAt)}</div>
             <div><span className="font-medium text-gray-700">Updated:</span> {formatDate(request.updatedAt)}</div>
           </div>

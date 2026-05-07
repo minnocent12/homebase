@@ -1,5 +1,6 @@
 package com.homebase.homebase_backend.request;
 
+import com.homebase.homebase_backend.team.Team;
 import com.homebase.homebase_backend.user.User;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -47,6 +48,13 @@ public class Request {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "assigned_to")
     private User assignedTo;
+
+    @ManyToOne
+    @JoinColumn(name = "team_id")
+    private Team team;
+
+    @Column(name = "request_number", insertable = false, updatable = false)
+    private Integer requestNumber;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;

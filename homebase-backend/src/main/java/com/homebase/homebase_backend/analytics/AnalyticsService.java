@@ -3,6 +3,9 @@ package com.homebase.homebase_backend.analytics;
 import com.homebase.homebase_backend.request.Request;
 import com.homebase.homebase_backend.request.RequestRepository;
 import com.homebase.homebase_backend.request.RequestStatus;
+import com.homebase.homebase_backend.user.User;
+import com.homebase.homebase_backend.user.UserRole;
+import org.springframework.data.jpa.domain.Specification;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -26,8 +29,16 @@ public class AnalyticsService {
     private final RequestRepository requestRepository;
 
     @Transactional(readOnly = true)
-    public AnalyticsSummary getSummary() {
-        List<Request> all = requestRepository.findAll();
+    public AnalyticsSummary getSummary(User currentUser) {
+        List<Request> all;
+        if (currentUser.getRole() == UserRole.MANAGER && currentUser.getTeam() != null) {
+            final java.util.UUID teamId = currentUser.getTeam().getId();
+            Specification<Request> teamSpec = (root, query, cb) ->
+                    cb.equal(root.get("team").get("id"), teamId);
+            all = requestRepository.findAll(teamSpec);
+        } else {
+            all = requestRepository.findAll();
+        }
 
         // ── By category ──────────────────────────────────────
         Map<String, Long> byCategory = all.stream()

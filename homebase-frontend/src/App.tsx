@@ -8,7 +8,9 @@ import DashboardPage     from './pages/DashboardPage';
 import RequestListPage   from './pages/RequestListPage';
 import CreateRequestPage from './pages/CreateRequestPage';
 import RequestDetailPage from './pages/RequestDetailPage';
-import AnalyticsPage     from './pages/AnalyticsPage';
+import AnalyticsPage        from './pages/AnalyticsPage';
+import TeamManagementPage  from './pages/TeamManagementPage';
+import UserManagementPage  from './pages/UserManagementPage';
 
 // ── Auth + inactivity guard for all protected routes ──────────
 const RequireAuth = () => {
@@ -59,6 +61,8 @@ const App = () => (
           <Route path="/requests/new" element={<CreateRequestPage />} />
           <Route path="/requests/:id" element={<RequestDetailPage />} />
           <Route path="/analytics"    element={<AnalyticsPage />} />
+          <Route path="/admin/teams"  element={<TeamManagementPage />} />
+          <Route path="/users"        element={<UserManagementPage />} />
         </Route>
 
         {/* Default redirect */}

@@ -6,9 +6,7 @@
 
 ## Overview
 
-HomeBase lets store associates submit operational requests (IT issues, HR concerns, facilities problems, supply needs), and gives managers and admins a unified place to triage, assign, and resolve them.
-
-Built as a showcase project for the **Home Depot Software Engineering Internship**.
+HomeBase lets store associates submit operational requests (IT issues, HR concerns, facilities problems, supply needs), and gives managers, technicians, and admins a unified place to triage, assign, and resolve them. Requests are auto-routed to the matching team based on category, and technicians get a purpose-built three-tab work queue.
 
 ---
 
@@ -61,17 +59,21 @@ Built as a showcase project for the **Home Depot Software Engineering Internship
 ## Features
 
 - JWT authentication — register, login, access + refresh token flow
-- Role-based users — ASSOCIATE, MANAGER, ADMIN
+- **Four-tier RBAC** — ASSOCIATE, TECHNICIAN, MANAGER, ADMIN with distinct permissions at every layer
 - Create operational requests with title, description, priority, and category
+- **Auto-routing** — new requests are automatically assigned to the matching team (IT, Facilities, HR, Supply) based on category
+- **REQ-{number} IDs** — every request gets a sequential human-readable ID (REQ-1, REQ-2…)
 - List requests with pagination, search, status/priority/category filters
 - Color-coded priority badges — CRITICAL, HIGH, MEDIUM, LOW
 - Dashboard with live summary cards (Open, In Progress, Resolved, Total)
 - Protected routes — unauthenticated users redirected to login
 - Persistent sessions — JWT stored in localStorage survives page refresh
-- **RBAC** — Associates see and manage only their own requests; Managers can view and update all; Admins have full access including delete
-- **Comments & activity log** — threaded comments per request with user name, role badge, and timestamp
-- **Request detail page** — full view of a single request with metadata, status/priority badges, and activity log
+- **Comments & activity timeline** — threaded comments per request; status changes and comments merged into a single chronological activity log with role badges
+- **Request detail page** — full view of a single request with metadata, status/priority badges, and activity timeline
 - **Analytics dashboard** — bar, pie, and line charts for category, status, priority breakdowns and 7-day trend; MANAGER/ADMIN only
+- **Teams** — six teams (IT, Facilities, HR, Supply, General Ops, Admin); each request auto-assigned to a team; Admins manage team membership
+- **User Management** — Admins create any role; Managers add Associates to their own team only
+- **Technician work queue** — three-tab view: Team Queue (unassigned team requests), My Work (assigned to me), My Submissions (requests I created); self-assign "Pick up" button
 - **Docker Compose** — full-stack local setup with one command (`docker-compose up --build`)
 - **GitHub Actions CI/CD** — backend tests + frontend build on every push; auto-deploys to AWS ECS on green builds to `main`
 - **AWS ECS Fargate + RDS** — containerized backend and frontend running on AWS with managed PostgreSQL
@@ -85,20 +87,23 @@ homebase/
 ├── homebase-backend/               # Spring Boot REST API
 │   ├── Dockerfile                  # Multi-stage build — Maven → JRE Alpine
 │   ├── .dockerignore
-│   ├── src/main/java/com/homebase/
-│   │   ├── auth/                   # JWT auth — register, login
-│   │   │   ├── dto/
-│   │   │   └── jwt/                # JwtUtil, JwtAuthFilter
-│   │   ├── config/                 # SecurityConfig, CorsConfig
-│   │   ├── request/                # Request entity, service, controller (RBAC-enforced)
-│   │   │   └── dto/
-│   │   ├── comment/                # Comment entity, service, controller
-│   │   │   └── dto/
-│   │   ├── analytics/              # AnalyticsController, AnalyticsService
-│   │   └── user/                   # User entity, repository
+│   └── src/main/java/com/homebase/
+│       ├── auth/                   # JWT auth — register, login, refresh
+│       │   ├── dto/
+│       │   └── jwt/                # JwtUtil, JwtAuthFilter
+│       ├── config/                 # SecurityConfig, CorsConfig
+│       ├── request/                # Request entity, service, controller (RBAC-enforced)
+│       │   └── dto/
+│       ├── comment/                # Comment entity, service, controller
+│       │   └── dto/
+│       ├── analytics/              # AnalyticsController, AnalyticsService
+│       ├── team/                   # Team entity, service, controller
+│       │   └── dto/
+│       └── user/                   # User entity, repository, UserService, UserController
+│           └── dto/
 │   └── src/main/resources/
 │       ├── application.yaml        # Multi-profile config (dev/prod)
-│       └── db/migration/           # Flyway SQL migrations (V1–V6)
+│       └── db/migration/           # Flyway SQL migrations (V1–V13)
 │
 ├── homebase-frontend/              # React + TypeScript SPA
 │   ├── Dockerfile                  # Multi-stage build — Node → nginx Alpine
@@ -109,7 +114,8 @@ homebase/
 │       ├── components/             # Navbar, PriorityBadge, SummaryCard, RequestRow
 │       ├── context/                # AuthContext — global auth state
 │       ├── pages/                  # Login, Dashboard, RequestList, RequestDetail,
-│       │                           #   CreateRequest, Analytics
+│       │                           #   CreateRequest, Analytics, UserManagement,
+│       │                           #   TeamManagement
 │       └── types/                  # TypeScript interfaces
 │
 ├── infra/                          # AWS ECS task definitions
@@ -210,17 +216,19 @@ App available at `http://localhost:5173`
 |---|---|---|---|
 | POST | `/api/auth/register` | Register a new user | Public |
 | POST | `/api/auth/login` | Login and receive tokens | Public |
+| POST | `/api/auth/refresh` | Exchange refresh token for new access token | Public |
 
 ### Requests
 
 | Method | Endpoint | Description | RBAC |
 |---|---|---|---|
 | POST | `/api/requests` | Create a new request | Any role |
-| GET | `/api/requests` | List requests (paginated, filtered) | Associates see own only |
-| GET | `/api/requests/{id}` | Get a single request | Associates see own only |
-| PUT | `/api/requests/{id}` | Update a request | MANAGER / ADMIN |
+| GET | `/api/requests` | List requests (paginated, filtered) | Scoped by role — see Role Permissions |
+| GET | `/api/requests/{id}` | Get a single request | Scoped by role |
+| PUT | `/api/requests/{id}` | Update status, assignment, priority | MANAGER / ADMIN / TECHNICIAN (limited) |
 | DELETE | `/api/requests/{id}` | Delete a request | ADMIN only |
-| GET | `/api/requests/summary` | Dashboard summary counts | Associates see own counts |
+| GET | `/api/requests/summary` | Dashboard summary counts | Scoped by role |
+| GET | `/api/requests/{id}/status-history` | Status change history | Required |
 
 ### Comments
 
@@ -234,6 +242,21 @@ App available at `http://localhost:5173`
 | Method | Endpoint | Description | RBAC |
 |---|---|---|---|
 | GET | `/api/analytics/summary` | Category, status, priority, trend data | MANAGER / ADMIN |
+
+### Users
+
+| Method | Endpoint | Description | RBAC |
+|---|---|---|---|
+| GET | `/api/users` | List users (Admins see all; Managers see own team) | MANAGER / ADMIN |
+| POST | `/api/users` | Create a new user | MANAGER / ADMIN |
+
+### Teams
+
+| Method | Endpoint | Description | RBAC |
+|---|---|---|---|
+| GET | `/api/teams` | List all teams with members | ADMIN |
+| POST | `/api/teams/{teamId}/members/{userId}` | Add a user to a team | ADMIN |
+| DELETE | `/api/teams/{teamId}/members/{userId}` | Remove a user from a team | ADMIN |
 
 ### Query Parameters — `GET /api/requests`
 
@@ -252,15 +275,41 @@ App available at `http://localhost:5173`
 
 ## Role Permissions
 
-| Action | ASSOCIATE | MANAGER | ADMIN |
-|---|---|---|---|
-| Register / Login | Yes | Yes | Yes |
-| Create request | Yes | Yes | Yes |
-| View requests | Own only | All | All |
-| Update request | No | Yes | Yes |
-| Delete request | No | No | Yes |
-| Add / view comments | Yes | Yes | Yes |
-| View analytics | No | Yes | Yes |
+| Action | ASSOCIATE | TECHNICIAN | MANAGER | ADMIN |
+|---|---|---|---|---|
+| Register / Login | Yes | Yes | Yes | Yes |
+| Create request | Yes | Yes | Yes | Yes |
+| View requests | Own only | Team + assigned + own | All | All |
+| Update request status | No | Own assigned requests | Yes | Yes |
+| Self-assign (pick up) a request | No | Yes (team queue) | No | No |
+| Assign to another user | No | No | Yes | Yes |
+| Delete request | No | No | No | Yes |
+| Add / view comments | Yes | Yes | Yes | Yes |
+| View analytics | No | No | Yes | Yes |
+| Manage users | No | No | Own team (Associates only) | All roles |
+| Manage teams | No | No | No | Yes |
+
+---
+
+## Database Migrations
+
+Flyway applies all schema changes automatically at startup.
+
+| Migration | Description |
+|---|---|
+| V1 | Initial schema — `users`, `requests`, `status_history` tables |
+| V2 | Add `comments` table |
+| V3 | Add `notifications` table |
+| V4 | Convert `role` column to VARCHAR |
+| V5 | Placeholder |
+| V6 | Restore request enum columns as VARCHAR |
+| V7 | Add `refresh_tokens` table |
+| V8 | Add `request_number` SERIAL column to `requests` |
+| V9 | Create `teams` table + seed IT, Facilities, HR, Supply, General Ops |
+| V10 | Add `team_id` FK to `users` |
+| V11 | Add `team_id` FK to `requests`; back-fill from category |
+| V12 | Make `teams.category` nullable; add Store Associates team |
+| V13 | Add Admin team |
 
 ---
 
@@ -297,21 +346,6 @@ Backend — Build & Test    Frontend — Build
 ```
 
 Secrets required in GitHub repository settings: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`.
-
----
-
-## Database Migrations
-
-Flyway applies all schema changes automatically at startup.
-
-| Migration | Description |
-|---|---|
-| V1 | Initial schema — `users`, `requests`, `status_history` tables |
-| V2 | Add `comments` table |
-| V3 | Add `notifications` table |
-| V4 | Convert `role` column to VARCHAR |
-| V5 | Placeholder |
-| V6 | Restore request enum columns as VARCHAR |
 
 ---
 

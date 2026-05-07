@@ -16,7 +16,7 @@ React + TypeScript SPA for the HomeBase Store Support Center Portal.
 
 ## Overview
 
-The frontend is a single-page application built with React 19, TypeScript, Vite, and Tailwind CSS. It communicates with the Spring Boot backend via relative `/api/` paths — proxied to the backend by nginx (Docker/AWS) or Vite's dev proxy (local). Auth state is managed globally with React Context + localStorage.
+The frontend is a single-page application built with React 19, TypeScript, Vite, and Tailwind CSS. It communicates with the Spring Boot backend via relative `/api/` paths — proxied to the backend by nginx (Docker/AWS) or Vite's dev proxy (local). Auth state (including the user's role and team) is managed globally with React Context + localStorage.
 
 ---
 
@@ -54,12 +54,14 @@ The frontend is a single-page application built with React 19, TypeScript, Vite,
 
 | Route | Page | Description | Access |
 |---|---|---|---|
-| `/login` | `LoginPage` | Email + password sign-in form with HomeBase branding | Public |
+| `/login` | `LoginPage` | Email + password sign-in form | Public |
 | `/dashboard` | `DashboardPage` | Summary cards (Open / In Progress / Resolved / Total) + recent requests | All roles |
-| `/requests` | `RequestListPage` | Paginated table with keyword search, status/priority/category filters, inline status updates | All roles (Associates see own requests only) |
-| `/requests/:id` | `RequestDetailPage` | Full request view — metadata, status/priority badges, threaded activity log, add comment | All roles |
+| `/requests` | `RequestListPage` | Paginated request table; keyword, status, priority filters; TECHNICIAN gets a three-tab work queue | All roles |
+| `/requests/:id` | `RequestDetailPage` | Full request view — metadata, badges, threaded activity timeline (status changes + comments merged chronologically) | All roles |
 | `/requests/new` | `CreateRequestPage` | Form to submit a new request — title, description, priority, category | All roles |
 | `/analytics` | `AnalyticsPage` | Bar/pie/line charts — category, status, priority, 7-day trend, avg resolution time | MANAGER / ADMIN only |
+| `/users` | `UserManagementPage` | User table with search, role, and team filters; create user modal | MANAGER / ADMIN only |
+| `/admin/teams` | `TeamManagementPage` | Team cards showing members; add/remove member controls; unassigned users panel | ADMIN only |
 
 ---
 
@@ -67,10 +69,24 @@ The frontend is a single-page application built with React 19, TypeScript, Vite,
 
 | Component | Description |
 |---|---|
-| `Navbar` | Top nav — links to Dashboard, Requests, New Request, Analytics (MANAGER/ADMIN only); shows user name with color-coded role badge (red=ADMIN, purple=MANAGER, blue=ASSOCIATE); Logout button |
+| `Navbar` | Top nav — role-aware links: Dashboard, Requests, New Request always visible; Analytics + Users for MANAGER/ADMIN; Teams for ADMIN only; color-coded role badge (red=ADMIN, purple=MANAGER, teal=TECHNICIAN, blue=ASSOCIATE); Logout |
 | `SummaryCard` | Dashboard stat card — label + count with color-coded border |
 | `PriorityBadge` | Colored pill badge for CRITICAL / HIGH / MEDIUM / LOW |
-| `RequestRow` | Table row for a single request — title is a clickable link to the detail page; status dropdown is disabled for ASSOCIATE (shows "View only") |
+| `RequestRow` | Table row — MANAGER/ADMIN: status + assignee dropdowns; TECHNICIAN: "Pick up" button (unassigned, not own) or teal status dropdown (assigned to me) or "Assigned" read-only; ASSOCIATE: "View only" |
+
+---
+
+## Technician Work Queue
+
+When a TECHNICIAN visits `/requests`, the standard filter bar is replaced by a three-tab interface:
+
+| Tab | What it shows |
+|---|---|
+| **Team Queue** | Unassigned requests in the technician's team that they did not create — available to pick up |
+| **My Work** | Requests currently assigned to the technician |
+| **My Submissions** | Requests the technician created themselves |
+
+Each tab shows a live count badge. The category filter is hidden for technicians (their team already scopes the category). Clicking "Pick up" on a Team Queue request self-assigns it and moves it to My Work.
 
 ---
 
@@ -79,26 +95,32 @@ The frontend is a single-page application built with React 19, TypeScript, Vite,
 ```
 src/
 ├── api/
-│   ├── axios.ts          # Axios instance — empty baseURL (relative paths) + Authorization header injection
-│   ├── requests.ts       # Typed API functions: createRequest, getRequests, updateRequest, deleteRequest, getSummary
+│   ├── axios.ts          # Axios instance — relative baseURL + Authorization header injection
+│   ├── requests.ts       # createRequest, getRequests, getRequestById, updateRequest,
+│   │                     #   deleteRequest, getSummary, getStatusHistory
 │   ├── comments.ts       # getComments(requestId), addComment(requestId, body)
-│   └── analytics.ts      # getAnalyticsSummary() — ChartEntry and AnalyticsSummary types
+│   ├── analytics.ts      # getAnalyticsSummary()
+│   ├── users.ts          # getUsers(), createUser(payload)
+│   └── teams.ts          # getTeams(), addMember(teamId, userId), removeMember(teamId, userId)
 ├── components/
-│   ├── Navbar.tsx         # Role-aware nav with colored role badge + Analytics link
+│   ├── Navbar.tsx         # Role-aware nav with colored role badge
 │   ├── PriorityBadge.tsx
 │   ├── SummaryCard.tsx
-│   └── RequestRow.tsx     # Clickable title link; RBAC-conditional status dropdown
+│   └── RequestRow.tsx     # RBAC-conditional action cell — full details in Components above
 ├── context/
-│   └── AuthContext.tsx    # Global auth state — user, token, login(), logout()
+│   └── AuthContext.tsx    # Global auth state — user (includes teamId, teamName), login(), logout(), refreshSession()
 ├── pages/
 │   ├── LoginPage.tsx
 │   ├── DashboardPage.tsx
-│   ├── RequestListPage.tsx
-│   ├── RequestDetailPage.tsx  # Request metadata + activity log + add comment
+│   ├── RequestListPage.tsx        # Three-tab view for TECHNICIAN; standard filters for others
+│   ├── RequestDetailPage.tsx      # Metadata + merged activity timeline + add comment
 │   ├── CreateRequestPage.tsx
-│   └── AnalyticsPage.tsx      # Recharts bar/pie/line; MANAGER/ADMIN only
+│   ├── AnalyticsPage.tsx          # Recharts; MANAGER/ADMIN only
+│   ├── UserManagementPage.tsx     # User table + CreateUserModal; MANAGER/ADMIN
+│   └── TeamManagementPage.tsx     # Team cards + member management; ADMIN only
 ├── types/
-│   └── index.ts           # TypeScript interfaces: User, Request, Comment, RequestSummary, AnalyticsSummary, etc.
+│   └── index.ts           # AuthResponse, Request, UserSummary, Team, Comment,
+│                          #   StatusHistoryEntry, DashboardSummary, Page<T>, etc.
 ├── App.tsx                # Route definitions with protected route guard
 └── main.tsx               # App entry point
 ```
@@ -109,23 +131,30 @@ src/
 
 1. User submits email + password on `/login`
 2. `AuthContext.login()` calls `POST /api/auth/login`
-3. On success, `accessToken` and user info are stored in `localStorage`
+3. On success, `accessToken`, `refreshToken`, and full user info (including `teamId`, `teamName`, `role`) are stored in `localStorage`
 4. Axios interceptor reads the token from `localStorage` and injects `Authorization: Bearer <token>` on every request
 5. `App.tsx` wraps protected routes in a guard that redirects unauthenticated users to `/login`
-6. `AnalyticsPage` additionally checks `user.role` and redirects non-MANAGER/ADMIN users to `/dashboard`
-7. `AuthContext.logout()` clears `localStorage` and redirects to `/login`
+6. Role-gated pages (`AnalyticsPage`, `UserManagementPage`, `TeamManagementPage`) additionally check `user.role` and redirect unauthorized users to `/dashboard`
+7. `AuthContext.refreshSession()` silently exchanges the stored refresh token for a new access token on 401 responses
+8. `AuthContext.logout()` clears `localStorage` and redirects to `/login`
 
 ---
 
 ## RBAC in the UI
 
-| UI Element | ASSOCIATE | MANAGER | ADMIN |
-|---|---|---|---|
-| Analytics nav link | Hidden | Visible | Visible |
-| Request list | Own requests only | All requests | All requests |
-| Status update dropdown | Disabled ("View only") | Enabled | Enabled |
-| Analytics page | Redirected to dashboard | Full access | Full access |
-| Role badge color | Blue | Purple | Red |
+| UI Element | ASSOCIATE | TECHNICIAN | MANAGER | ADMIN |
+|---|---|---|---|---|
+| Analytics nav link | Hidden | Hidden | Visible | Visible |
+| Users nav link | Hidden | Hidden | Visible | Visible |
+| Teams nav link | Hidden | Hidden | Hidden | Visible |
+| Request list view | Own requests | Team + assigned + own (3 tabs) | All requests | All requests |
+| Category filter | Visible | Hidden | Visible | Visible |
+| Status update | "View only" | Own assigned (teal dropdown) | Full dropdown | Full dropdown |
+| Pick up button | No | Yes (unassigned team requests) | No | No |
+| Assign dropdown | No | No | Yes | Yes |
+| User management page | Blocked | Blocked | Own team Associates | All users |
+| Team management page | Blocked | Blocked | Blocked | Full access |
+| Role badge color | Blue | Teal | Purple | Red |
 
 ---
 

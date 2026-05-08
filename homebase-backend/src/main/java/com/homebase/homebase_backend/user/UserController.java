@@ -45,9 +45,9 @@ public class UserController {
             @AuthenticationPrincipal User currentUser
     ) {
         List<User> users = currentUser.getRole() == UserRole.ADMIN
-                ? userRepository.findAll()
+                ? userRepository.findAllByOrderByCreatedAtDesc()
                 : (currentUser.getTeam() != null
-                        ? userRepository.findByTeam(currentUser.getTeam())
+                        ? userRepository.findByTeamOrderByCreatedAtDesc(currentUser.getTeam())
                         : List.of());
 
         return ResponseEntity.ok(users.stream().map(UserResponseDto::from).toList());

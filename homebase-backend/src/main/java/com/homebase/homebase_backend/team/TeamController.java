@@ -23,9 +23,9 @@ public class TeamController {
     @GetMapping
     @Transactional(readOnly = true)
     public ResponseEntity<List<TeamResponseDto>> getAll() {
-        List<TeamResponseDto> result = teamRepository.findAll().stream()
+        List<TeamResponseDto> result = teamRepository.findAllByOrderByCreatedAtDesc().stream()
                 .map(t -> {
-                    List<UserResponseDto> members = userRepository.findByTeam(t).stream()
+                    List<UserResponseDto> members = userRepository.findByTeamOrderByCreatedAtDesc(t).stream()
                             .map(UserResponseDto::from)
                             .toList();
                     return TeamResponseDto.from(t, members);

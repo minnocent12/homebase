@@ -11,6 +11,7 @@ import RequestDetailPage from './pages/RequestDetailPage';
 import AnalyticsPage        from './pages/AnalyticsPage';
 import TeamManagementPage  from './pages/TeamManagementPage';
 import UserManagementPage  from './pages/UserManagementPage';
+import UserProfilePage     from './pages/UserProfilePage';
 
 // ── Auth + inactivity guard for all protected routes ──────────
 const RequireAuth = () => {
@@ -63,6 +64,7 @@ const App = () => (
           <Route path="/analytics"    element={<AnalyticsPage />} />
           <Route path="/admin/teams"  element={<TeamManagementPage />} />
           <Route path="/users"        element={<UserManagementPage />} />
+          <Route path="/users/:id"    element={<UserProfilePage />} />
         </Route>
 
         {/* Default redirect */}

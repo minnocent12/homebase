@@ -201,7 +201,7 @@ const RequestListPage = () => {
             <option value="MEDIUM">Medium</option>
             <option value="LOW">Low</option>
           </select>
-          {!isTechnician && (
+          {(user?.role === 'ADMIN' || user?.role === 'ASSOCIATE') && (
             <select value={category} onChange={e => { setCategory(e.target.value); setPage(0); }}
               className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
               <option value="">All Categories</option>

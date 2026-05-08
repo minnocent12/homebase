@@ -6,7 +6,7 @@
 
 ## Overview
 
-HomeBase lets store associates submit operational requests (IT issues, HR concerns, facilities problems, supply needs), and gives managers, technicians, and admins a unified place to triage, assign, and resolve them. Requests are auto-routed to the matching team based on category, and technicians get a purpose-built three-tab work queue.
+HomeBase lets store associates submit operational requests (IT issues, HR concerns, facilities problems, supply needs), and gives managers, technicians, and admins a unified place to triage, assign, and resolve them. Requests are auto-routed to the matching team based on category, technicians get a purpose-built three-tab work queue, and admins have full user lifecycle management including per-user analytics profiles.
 
 ---
 
@@ -58,22 +58,28 @@ HomeBase lets store associates submit operational requests (IT issues, HR concer
 
 ## Features
 
-- JWT authentication — register, login, access + refresh token flow
-- **Four-tier RBAC** — ASSOCIATE, TECHNICIAN, MANAGER, ADMIN with distinct permissions at every layer
+- JWT authentication — register, login, access + refresh token flow with 15-min / 7-day expiry
+- **Four-tier RBAC** — ASSOCIATE, TECHNICIAN, MANAGER, ADMIN with distinct permissions enforced at the service layer
 - Create operational requests with title, description, priority, and category
 - **Auto-routing** — new requests are automatically assigned to the matching team (IT, Facilities, HR, Supply) based on category
 - **REQ-{number} IDs** — every request gets a sequential human-readable ID (REQ-1, REQ-2…)
-- List requests with pagination, search, status/priority/category filters
+- List requests with pagination, server-side search, status / priority / category / assignee / date-range filters
+- **Date range filter** — From / To date pickers on the request list; MANAGER filter is automatically scoped to their team
+- **Assigned To filter** — MANAGER / ADMIN can filter requests by assignee; includes "Unassigned" option
 - Color-coded priority badges — CRITICAL, HIGH, MEDIUM, LOW
-- Dashboard with live summary cards (Open, In Progress, Resolved, Total)
-- Protected routes — unauthenticated users redirected to login
+- Dashboard with live summary cards (Open, In Progress, Resolved, Total) scoped by role
+- Protected routes — unauthenticated users redirected to login; inactivity timer with 30-second warning banner
 - Persistent sessions — JWT stored in localStorage survives page refresh
 - **Comments & activity timeline** — threaded comments per request; status changes and comments merged into a single chronological activity log with role badges
 - **Request detail page** — full view of a single request with metadata, status/priority badges, and activity timeline
-- **Analytics dashboard** — bar, pie, and line charts for category, status, priority breakdowns and 7-day trend; MANAGER/ADMIN only
-- **Teams** — six teams (IT, Facilities, HR, Supply, General Ops, Admin); each request auto-assigned to a team; Admins manage team membership
-- **User Management** — Admins create any role; Managers add Associates to their own team only
-- **Technician work queue** — three-tab view: Team Queue (unassigned team requests), My Work (assigned to me), My Submissions (requests I created); self-assign "Pick up" button
+- **Analytics dashboard** — bar, pie, and line charts for category, status, priority breakdowns and 7-day trend; scoped to MANAGER's team; ADMIN sees all
+- **Teams** — six teams (IT, Facilities, HR, Supply, General Ops, Admin); each request auto-assigned to a team; Admins manage team membership; team name links to filtered Users page
+- **User Management** — Admins create / update / disable / delete any user; Managers add Associates to their own team; user names link to full profile pages
+- **User Profile Page** — per-user analytics: stat cards (submitted, assigned, comments, resolved rate), grouped bar chart (submitted vs assigned by status), 7-day dual-line trend, three-tab activity (Submissions / Assigned Work / Comments); Associates see submission-only view
+- **Disable / Enable users** — Admins toggle user `active` flag; disabled users cannot log in; existing sessions expire naturally
+- **Delete users** — Admins can delete users with no associated records; blocked with a clear error if records exist
+- **Technician work queue** — three-tab view: Team Queue (unassigned team requests), My Work (assigned to me), My Submissions (requests I created); self-assign "Pick up" button; filters reset on tab change
+- **Manager scoping** — Managers see only their team's requests, dashboard summary, and analytics everywhere
 - **Docker Compose** — full-stack local setup with one command (`docker-compose up --build`)
 - **GitHub Actions CI/CD** — backend tests + frontend build on every push; auto-deploys to AWS ECS on green builds to `main`
 - **AWS ECS Fargate + RDS** — containerized backend and frontend running on AWS with managed PostgreSQL
@@ -86,41 +92,39 @@ HomeBase lets store associates submit operational requests (IT issues, HR concer
 homebase/
 ├── homebase-backend/               # Spring Boot REST API
 │   ├── Dockerfile                  # Multi-stage build — Maven → JRE Alpine
-│   ├── .dockerignore
 │   └── src/main/java/com/homebase/
 │       ├── auth/                   # JWT auth — register, login, refresh
-│       │   ├── dto/
+│       │   ├── dto/                # AuthResponse (includes teamId, teamName)
 │       │   └── jwt/                # JwtUtil, JwtAuthFilter
 │       ├── config/                 # SecurityConfig, CorsConfig
 │       ├── request/                # Request entity, service, controller (RBAC-enforced)
 │       │   └── dto/
 │       ├── comment/                # Comment entity, service, controller
 │       │   └── dto/
-│       ├── analytics/              # AnalyticsController, AnalyticsService
+│       ├── analytics/              # AnalyticsController, AnalyticsService (team-scoped for MANAGER)
 │       ├── team/                   # Team entity, service, controller
 │       │   └── dto/
-│       └── user/                   # User entity, repository, UserService, UserController
-│           └── dto/
+│       └── user/                   # User entity, repository, UserController
+│           └── dto/                # UserResponseDto, UserProfileDto, UpdateUserDto, CreateUserDto
 │   └── src/main/resources/
 │       ├── application.yaml        # Multi-profile config (dev/prod)
-│       └── db/migration/           # Flyway SQL migrations (V1–V13)
+│       └── db/migration/           # Flyway SQL migrations (V1–V14)
 │
 ├── homebase-frontend/              # React + TypeScript SPA
 │   ├── Dockerfile                  # Multi-stage build — Node → nginx Alpine
-│   ├── .dockerignore
 │   ├── nginx.conf                  # SPA routing + /api/ proxy to backend via ALB
 │   └── src/
 │       ├── api/                    # Axios instance + typed API modules
 │       ├── components/             # Navbar, PriorityBadge, SummaryCard, RequestRow
-│       ├── context/                # AuthContext — global auth state
+│       ├── context/                # AuthContext — global auth state (role, teamId, teamName)
 │       ├── pages/                  # Login, Dashboard, RequestList, RequestDetail,
 │       │                           #   CreateRequest, Analytics, UserManagement,
-│       │                           #   TeamManagement
+│       │                           #   UserProfile, TeamManagement
 │       └── types/                  # TypeScript interfaces
 │
 ├── infra/                          # AWS ECS task definitions
-│   ├── backend-task-def.json       # ECS Fargate task definition — Spring Boot
-│   └── frontend-task-def.json      # ECS Fargate task definition — nginx
+│   ├── backend-task-def.json
+│   └── frontend-task-def.json
 │
 ├── .github/
 │   └── workflows/
@@ -128,7 +132,7 @@ homebase/
 │
 ├── docker-compose.yml              # Runs PostgreSQL + backend + frontend locally
 └── docs/
-    └── screenshots/                # App screenshots
+    └── screenshots/
 ```
 
 ---
@@ -137,15 +141,13 @@ homebase/
 
 ### Option 1 — Docker (recommended)
 
-Runs the full stack with one command. Requires Docker Desktop.
-
 ```bash
 git clone https://github.com/minnocent12/homebase.git
 cd homebase
 docker-compose up --build
 ```
 
-App available at `http://localhost`
+App available at `http://localhost`  
 API available at `http://localhost/api`
 
 ### Option 2 — Local development
@@ -159,14 +161,14 @@ API available at `http://localhost/api`
 | PostgreSQL | 17+ |
 | Node.js | 18+ |
 
-#### 1. Clone the repository
+#### 1. Clone
 
 ```bash
 git clone https://github.com/minnocent12/homebase.git
 cd homebase
 ```
 
-#### 2. Set up the database
+#### 2. Create the database
 
 ```bash
 psql -U postgres -c "CREATE DATABASE homebase_dev;"
@@ -181,7 +183,7 @@ psql -U postgres -c "CREATE DATABASE homebase_dev;"
 
 ```bash
 # macOS / Linux
-cd homebase-backend && ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+cd homebase-backend && ./mvnw spring-boot:run
 ```
 
 API available at `http://localhost:8080`
@@ -189,7 +191,7 @@ API available at `http://localhost:8080`
 #### 4. Start the frontend
 
 ```powershell
-# Windows — from the repo root
+# Windows
 .\run-frontend.ps1
 ```
 
@@ -199,12 +201,6 @@ cd homebase-frontend && npm install && npm run dev
 ```
 
 App available at `http://localhost:5173`
-
-#### Run everything at once (Windows)
-
-```powershell
-.\run-all.ps1
-```
 
 ---
 
@@ -223,53 +219,46 @@ App available at `http://localhost:5173`
 | Method | Endpoint | Description | RBAC |
 |---|---|---|---|
 | POST | `/api/requests` | Create a new request | Any role |
-| GET | `/api/requests` | List requests (paginated, filtered) | Scoped by role — see Role Permissions |
+| GET | `/api/requests` | List requests (paginated, filtered) | Scoped by role |
 | GET | `/api/requests/{id}` | Get a single request | Scoped by role |
 | PUT | `/api/requests/{id}` | Update status, assignment, priority | MANAGER / ADMIN / TECHNICIAN (limited) |
 | DELETE | `/api/requests/{id}` | Delete a request | ADMIN only |
 | GET | `/api/requests/summary` | Dashboard summary counts | Scoped by role |
-| GET | `/api/requests/{id}/status-history` | Status change history | Required |
+| GET | `/api/requests/{id}/history` | Status change history | Required |
+
+**Query parameters:** `status`, `priority`, `category`, `keyword`, `assignedToId`, `dateFrom`, `dateTo`, `page`, `size`, `sortBy`, `sortDir`
 
 ### Comments
 
 | Method | Endpoint | Description | Auth |
 |---|---|---|---|
-| POST | `/api/requests/{id}/comments` | Add a comment to a request | Required |
-| GET | `/api/requests/{id}/comments` | Get all comments for a request | Required |
+| POST | `/api/requests/{id}/comments` | Add a comment | Required |
+| GET | `/api/requests/{id}/comments` | Get all comments | Required |
 
 ### Analytics
 
 | Method | Endpoint | Description | RBAC |
 |---|---|---|---|
-| GET | `/api/analytics/summary` | Category, status, priority, trend data | MANAGER / ADMIN |
+| GET | `/api/analytics/summary` | Category, status, priority, trend, avg resolution hours | MANAGER / ADMIN |
 
 ### Users
 
 | Method | Endpoint | Description | RBAC |
 |---|---|---|---|
-| GET | `/api/users` | List users (Admins see all; Managers see own team) | MANAGER / ADMIN |
-| POST | `/api/users` | Create a new user | MANAGER / ADMIN |
+| GET | `/api/users` | List users (Admins: all; Managers: own team) | MANAGER / ADMIN |
+| POST | `/api/users` | Create a user | MANAGER / ADMIN |
+| GET | `/api/users/{id}` | Full user profile with stats and charts | MANAGER / ADMIN |
+| PUT | `/api/users/{id}` | Update name, email, role, team | ADMIN only |
+| PATCH | `/api/users/{id}/active` | Enable or disable account | ADMIN only |
+| PATCH | `/api/users/{id}/team` | Assign or remove team | ADMIN only |
+| DELETE | `/api/users/{id}` | Delete user (blocked if records exist) | ADMIN only |
 
 ### Teams
 
 | Method | Endpoint | Description | RBAC |
 |---|---|---|---|
 | GET | `/api/teams` | List all teams with members | ADMIN |
-| POST | `/api/teams/{teamId}/members/{userId}` | Add a user to a team | ADMIN |
-| DELETE | `/api/teams/{teamId}/members/{userId}` | Remove a user from a team | ADMIN |
-
-### Query Parameters — `GET /api/requests`
-
-| Parameter | Description | Values |
-|---|---|---|
-| `status` | Filter by status | `OPEN`, `IN_PROGRESS`, `RESOLVED` |
-| `priority` | Filter by priority | `LOW`, `MEDIUM`, `HIGH`, `CRITICAL` |
-| `category` | Filter by category | `IT`, `HR`, `FACILITIES`, `SUPPLY`, `OTHER` |
-| `keyword` | Search in title/description | any string |
-| `page` | Page number (0-based) | `0`, `1`, `2`… |
-| `size` | Items per page | default `10` |
-| `sortBy` | Sort field | `createdAt`, `priority`, `status` |
-| `sortDir` | Sort direction | `asc`, `desc` |
+| PATCH | `/api/users/{id}/team` | Assign user to a team | ADMIN |
 
 ---
 
@@ -279,14 +268,16 @@ App available at `http://localhost:5173`
 |---|---|---|---|---|
 | Register / Login | Yes | Yes | Yes | Yes |
 | Create request | Yes | Yes | Yes | Yes |
-| View requests | Own only | Team + assigned + own | All | All |
-| Update request status | No | Own assigned requests | Yes | Yes |
-| Self-assign (pick up) a request | No | Yes (team queue) | No | No |
+| View requests | Own only | Team + assigned + own | Own team | All |
+| Update request status | No | Own assigned only | Yes | Yes |
+| Self-assign (pick up) request | No | Yes (team queue) | No | No |
 | Assign to another user | No | No | Yes | Yes |
 | Delete request | No | No | No | Yes |
 | Add / view comments | Yes | Yes | Yes | Yes |
-| View analytics | No | No | Yes | Yes |
-| Manage users | No | No | Own team (Associates only) | All roles |
+| View analytics | No | No | Own team | All |
+| View user profiles | No | No | Own team | All |
+| Create / update / delete users | No | No | Own team (Associates only) | All roles |
+| Disable / enable users | No | No | No | Yes |
 | Manage teams | No | No | No | Yes |
 
 ---
@@ -310,6 +301,7 @@ Flyway applies all schema changes automatically at startup.
 | V11 | Add `team_id` FK to `requests`; back-fill from category |
 | V12 | Make `teams.category` nullable; add Store Associates team |
 | V13 | Add Admin team |
+| V14 | Add `active` BOOLEAN column to `users` (default `true`) |
 
 ---
 
@@ -322,13 +314,11 @@ Flyway applies all schema changes automatically at startup.
 | `DATABASE_USER` | Database username | Production only |
 | `DATABASE_PASSWORD` | Database password | Production only |
 
-> Dev profile uses `localhost:5432/homebase_dev` with hardcoded credentials — no env vars needed locally. Docker Compose and AWS ECS inject all values via environment variables using the `prod` Spring profile.
+> Dev profile uses `localhost:5432/homebase_dev` with hardcoded credentials — no env vars needed locally.
 
 ---
 
 ## CI/CD Pipeline
-
-Every push to `main` triggers the GitHub Actions workflow:
 
 ```
 push to main
@@ -345,7 +335,7 @@ Backend — Build & Test    Frontend — Build
          Deploy to AWS ECS Fargate
 ```
 
-Secrets required in GitHub repository settings: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`.
+Secrets required: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`.
 
 ---
 

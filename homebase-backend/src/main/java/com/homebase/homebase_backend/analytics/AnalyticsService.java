@@ -11,7 +11,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,7 +28,7 @@ public class AnalyticsService {
     private final RequestRepository requestRepository;
 
     @Transactional(readOnly = true)
-    public AnalyticsSummary getSummary(User currentUser) {
+    public AnalyticsSummary getSummary(User currentUser, String period) {
         List<Request> all;
         if (currentUser.getRole() == UserRole.MANAGER && currentUser.getTeam() != null) {
             final java.util.UUID teamId = currentUser.getTeam().getId();
@@ -74,24 +73,8 @@ public class AnalyticsService {
                 .map(e -> new ChartEntry(e.getKey(), e.getValue()))
                 .collect(Collectors.toList());
 
-        // ── Last 7 days trend ────────────────────────────────
-        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("MMM d");
-        OffsetDateTime now = OffsetDateTime.now();
-        List<ChartEntry> trendData = new ArrayList<>();
-
-        for (int i = 6; i >= 0; i--) {
-            OffsetDateTime dayStart = now.minusDays(i).toLocalDate().atStartOfDay()
-                    .atOffset(now.getOffset());
-            OffsetDateTime dayEnd = dayStart.plusDays(1);
-            String label = dayStart.format(fmt);
-
-            long count = all.stream()
-                    .filter(r -> r.getCreatedAt().isAfter(dayStart)
-                            && r.getCreatedAt().isBefore(dayEnd))
-                    .count();
-
-            trendData.add(new ChartEntry(label, count));
-        }
+        // ── Trend ────────────────────────────────────────────
+        List<ChartEntry> trendData = buildTrend(all, period);
 
         // ── Avg resolution time (hours) ──────────────────────
         double avgResolutionHours = all.stream()
@@ -99,7 +82,7 @@ public class AnalyticsService {
                 .mapToLong(r -> {
                     long diffMs = r.getUpdatedAt().toInstant().toEpochMilli()
                             - r.getCreatedAt().toInstant().toEpochMilli();
-                    return diffMs / (1000 * 60 * 60); // convert to hours
+                    return diffMs / (1000 * 60 * 60);
                 })
                 .average()
                 .orElse(0.0);
@@ -109,9 +92,42 @@ public class AnalyticsService {
                 .byCategory(categoryData)
                 .byStatus(statusData)
                 .byPriority(priorityData)
-                .last7DaysTrend(trendData)
+                .trendData(trendData)
                 .avgResolutionHours(Math.round(avgResolutionHours * 10.0) / 10.0)
                 .build();
+    }
+
+    private List<ChartEntry> buildTrend(List<Request> requests, String period) {
+        OffsetDateTime now = OffsetDateTime.now();
+        List<ChartEntry> result = new ArrayList<>();
+
+        if ("12m".equals(period)) {
+            DateTimeFormatter fmt = DateTimeFormatter.ofPattern("MMM yy");
+            for (int i = 11; i >= 0; i--) {
+                OffsetDateTime start = now.minusMonths(i).toLocalDate()
+                        .withDayOfMonth(1).atStartOfDay().atOffset(now.getOffset());
+                OffsetDateTime end = start.plusMonths(1);
+                String label = start.format(fmt);
+                long count = requests.stream()
+                        .filter(r -> !r.getCreatedAt().isBefore(start) && r.getCreatedAt().isBefore(end))
+                        .count();
+                result.add(new ChartEntry(label, count));
+            }
+        } else {
+            int days = "30d".equals(period) ? 30 : 7;
+            DateTimeFormatter fmt = DateTimeFormatter.ofPattern("MMM d");
+            for (int i = days - 1; i >= 0; i--) {
+                OffsetDateTime start = now.minusDays(i).toLocalDate()
+                        .atStartOfDay().atOffset(now.getOffset());
+                OffsetDateTime end = start.plusDays(1);
+                String label = start.format(fmt);
+                long count = requests.stream()
+                        .filter(r -> !r.getCreatedAt().isBefore(start) && r.getCreatedAt().isBefore(end))
+                        .count();
+                result.add(new ChartEntry(label, count));
+            }
+        }
+        return result;
     }
 
     // ── Inner DTOs ───────────────────────────────────────────
@@ -121,7 +137,7 @@ public class AnalyticsService {
         private List<ChartEntry> byCategory;
         private List<ChartEntry> byStatus;
         private List<ChartEntry> byPriority;
-        private List<ChartEntry> last7DaysTrend;
+        private List<ChartEntry> trendData;
         private double avgResolutionHours;
     }
 

@@ -10,11 +10,11 @@ export interface AnalyticsSummary {
   byCategory: ChartEntry[];
   byStatus: ChartEntry[];
   byPriority: ChartEntry[];
-  last7DaysTrend: ChartEntry[];
+  trendData: ChartEntry[];
   avgResolutionHours: number;
 }
 
-export const getAnalyticsSummary = async (): Promise<AnalyticsSummary> => {
-  const res = await api.get<AnalyticsSummary>('/api/analytics/summary');
+export const getAnalyticsSummary = async (period = '7d'): Promise<AnalyticsSummary> => {
+  const res = await api.get<AnalyticsSummary>('/api/analytics/summary', { params: { period } });
   return res.data;
 };

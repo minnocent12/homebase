@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Link } from 'react-router-dom';
 import { getTeams, assignUserToTeam } from '../api/teams';
 import { getUsers } from '../api/users';
 import type { Team, UserSummary } from '../types';
@@ -18,12 +20,121 @@ const roleColors: Record<string, string> = {
   ASSOCIATE: 'bg-blue-100 text-blue-700',
 };
 
+// ── Searchable user combobox (portal-based — never clipped by overflow:hidden) ──
+interface ComboboxProps {
+  users: UserSummary[];
+  value: string;
+  onChange: (userId: string) => void;
+}
+
+const UserCombobox = ({ users, value, onChange }: ComboboxProps) => {
+  const [query, setQuery]     = useState('');
+  const [open, setOpen]       = useState(false);
+  const [pos, setPos]         = useState({ top: 0, left: 0, width: 0 });
+  const inputRef              = useRef<HTMLInputElement>(null);
+  const dropdownRef           = useRef<HTMLDivElement>(null);
+  const containerRef          = useRef<HTMLDivElement>(null);
+
+  const selectedUser = users.find(u => u.id === value) ?? null;
+
+  const filtered = query
+    ? users.filter(u =>
+        u.fullName.toLowerCase().includes(query.toLowerCase()) ||
+        u.role.toLowerCase().includes(query.toLowerCase()))
+    : users;
+
+  const calcPos = () => {
+    if (inputRef.current) {
+      const r = inputRef.current.getBoundingClientRect();
+      setPos({ top: r.bottom + 4, left: r.left, width: r.width });
+    }
+  };
+
+  // Close on click outside both the input container and the portal dropdown
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (
+        !containerRef.current?.contains(e.target as Node) &&
+        !dropdownRef.current?.contains(e.target as Node)
+      ) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const handleSelect = (u: UserSummary) => {
+    onChange(u.id);
+    setQuery('');
+    setOpen(false);
+  };
+
+  const handleClear = () => { onChange(''); setQuery(''); setOpen(false); };
+
+  return (
+    <div className="relative flex-1" ref={containerRef}>
+      <div className="relative">
+        <input
+          ref={inputRef}
+          type="text"
+          value={selectedUser ? selectedUser.fullName : query}
+          onChange={e => { setQuery(e.target.value); onChange(''); calcPos(); setOpen(true); }}
+          onFocus={() => { calcPos(); setOpen(true); }}
+          placeholder="Search by name…"
+          className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 pr-6"
+        />
+        {(query || value) && (
+          <button type="button" onClick={handleClear}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-base leading-none">
+            ×
+          </button>
+        )}
+      </div>
+
+      {open && createPortal(
+        <div
+          ref={dropdownRef}
+          style={{ position: 'fixed', top: pos.top, left: pos.left, width: pos.width, zIndex: 9999 }}
+          className="bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto"
+        >
+          {filtered.length > 0 ? (
+            filtered.map(u => (
+              <button key={u.id} type="button" onMouseDown={() => handleSelect(u)}
+                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-50 transition-colors">
+                <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-medium text-gray-600 flex-shrink-0">
+                  {u.fullName.charAt(0)}
+                </div>
+                <div className="flex-1 min-w-0 text-left">
+                  <span className="text-xs font-medium text-gray-800">{u.fullName}</span>
+                  {u.teamName && <span className="text-xs text-gray-400 ml-1">— {u.teamName}</span>}
+                </div>
+                <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ${roleColors[u.role] ?? 'bg-gray-100 text-gray-600'}`}>
+                  {u.role}
+                </span>
+              </button>
+            ))
+          ) : (
+            <div className="px-3 py-2.5 text-xs text-gray-400 italic">
+              {query ? `No users match "${query}"` : 'No users available'}
+            </div>
+          )}
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+};
+
+// ── Page ─────────────────────────────────────────────────────
 const TeamManagementPage = () => {
   const [teams, setTeams]       = useState<Team[]>([]);
   const [allUsers, setAllUsers] = useState<UserSummary[]>([]);
   const [loading, setLoading]   = useState(true);
   const [adding, setAdding]     = useState<Record<string, string>>({}); // teamId → selected userId
   const [saving, setSaving]     = useState<string | null>(null); // userId being updated
+  const [resetKeys, setResetKeys] = useState<Record<string, number>>({}); // teamId → remount key
 
   useEffect(() => {
     Promise.all([getTeams(), getUsers()])
@@ -54,6 +165,7 @@ const TeamManagementPage = () => {
         return { ...t, members: t.members.filter(m => m.id !== userId) };
       }));
       setAdding(prev => ({ ...prev, [teamId]: '' }));
+      setResetKeys(prev => ({ ...prev, [teamId]: (prev[teamId] ?? 0) + 1 }));
     } finally {
       setSaving(null);
     }
@@ -106,12 +218,22 @@ const TeamManagementPage = () => {
                     {/* Card header */}
                     <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
                       <div>
-                        <h2 className="font-semibold text-gray-900">{team.name}</h2>
+                        <Link
+                          to={`/users?team=${team.id}`}
+                          className="font-semibold text-gray-900 hover:text-blue-600 transition-colors"
+                        >
+                          {team.name}
+                        </Link>
                         <p className="text-xs text-gray-500 mt-0.5">{team.description}</p>
                       </div>
-                      <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${categoryColors[team.category ?? ''] ?? 'bg-gray-100 text-gray-600'}`}>
-                        {team.category}
-                      </span>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-gray-100 text-gray-600">
+                          {team.members.length} member{team.members.length !== 1 ? 's' : ''}
+                        </span>
+                        <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${categoryColors[team.category ?? ''] ?? 'bg-gray-100 text-gray-600'}`}>
+                          {team.category ?? 'GENERAL'}
+                        </span>
+                      </div>
                     </div>
 
                     {/* Members */}
@@ -146,18 +268,12 @@ const TeamManagementPage = () => {
 
                     {/* Add member */}
                     <div className="px-5 py-3 border-t border-gray-100 bg-gray-50 flex gap-2">
-                      <select
+                      <UserCombobox
+                        key={resetKeys[team.id] ?? 0}
+                        users={addableUsers}
                         value={adding[team.id] ?? ''}
-                        onChange={e => setAdding(prev => ({ ...prev, [team.id]: e.target.value }))}
-                        className="flex-1 text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">Select a member to add…</option>
-                        {addableUsers.map(u => (
-                          <option key={u.id} value={u.id}>
-                            {u.fullName} ({u.role}){u.teamName ? ` — currently: ${u.teamName}` : ''}
-                          </option>
-                        ))}
-                      </select>
+                        onChange={userId => setAdding(prev => ({ ...prev, [team.id]: userId }))}
+                      />
                       <button
                         onClick={() => handleAdd(team.id)}
                         disabled={!adding[team.id] || saving !== null}

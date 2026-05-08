@@ -21,8 +21,9 @@ public class UserResponseDto {
     private String         role;
     private UUID           teamId;
     private String         teamName;
-    private String         teamCategory;  // null for organisational teams
+    private String         teamCategory;
     private OffsetDateTime createdAt;
+    private boolean        active;
 
     public static UserResponseDto from(User u) {
         return UserResponseDto.builder()
@@ -35,6 +36,7 @@ public class UserResponseDto {
                 .teamCategory(u.getTeam() != null && u.getTeam().getCategory() != null
                         ? u.getTeam().getCategory().name() : null)
                 .createdAt(u.getCreatedAt())
+                .active(u.isActive())
                 .build();
     }
 }

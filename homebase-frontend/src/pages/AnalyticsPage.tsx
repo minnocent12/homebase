@@ -29,19 +29,46 @@ const PRIORITY_COLORS: Record<string, string> = {
 
 const CATEGORY_COLOR = '#6366F1';
 
+type TrendPeriod = '7d' | '30d' | '12m';
+
+const TREND_PERIODS: { key: TrendPeriod; label: string }[] = [
+  { key: '7d',  label: '7D'  },
+  { key: '30d', label: '30D' },
+  { key: '12m', label: '12M' },
+];
+
+const trendTitle: Record<TrendPeriod, string> = {
+  '7d':  'Requests — Last 7 Days',
+  '30d': 'Requests — Last 30 Days',
+  '12m': 'Requests — Last 12 Months',
+};
+
 const AnalyticsPage = () => {
   const { user } = useAuth();
-  const [data, setData]       = useState<AnalyticsSummary | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData]             = useState<AnalyticsSummary | null>(null);
+  const [loading, setLoading]       = useState(true);
+  const [trendPeriod, setTrendPeriod] = useState<TrendPeriod>('7d');
+  const [trendLoading, setTrendLoading] = useState(false);
 
   // Redirect ASSOCIATEs
   if (user?.role === 'ASSOCIATE') return <Navigate to="/dashboard" replace />;
 
   useEffect(() => {
-    getAnalyticsSummary()
+    getAnalyticsSummary('7d')
       .then(setData)
       .finally(() => setLoading(false));
   }, []);
+
+  const handleTrendPeriod = async (p: TrendPeriod) => {
+    setTrendPeriod(p);
+    setTrendLoading(true);
+    try {
+      const updated = await getAnalyticsSummary(p);
+      setData(prev => prev ? { ...prev, trendData: updated.trendData } : prev);
+    } finally {
+      setTrendLoading(false);
+    }
+  };
 
   const resolvedCount = data?.byStatus.find(s => s.name === 'RESOLVED')?.value ?? 0;
 
@@ -160,13 +187,38 @@ const AnalyticsPage = () => {
             </ResponsiveContainer>
           </div>
 
-          {/* 7-day trend */}
+          {/* Trend */}
           <div className="bg-white rounded-2xl border border-gray-200 p-6">
-            <h2 className="text-sm font-semibold text-gray-700 mb-4">Requests — Last 7 Days</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-gray-700">{trendTitle[trendPeriod]}</h2>
+              <div className="flex gap-1">
+                {TREND_PERIODS.map(({ key, label }) => (
+                  <button
+                    key={key}
+                    onClick={() => handleTrendPeriod(key)}
+                    disabled={trendLoading}
+                    className={`px-2.5 py-1 text-xs font-medium rounded-lg transition-colors disabled:opacity-50 ${
+                      trendPeriod === key
+                        ? 'bg-indigo-600 text-white'
+                        : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={data.last7DaysTrend} margin={{ top: 0, right: 10, left: -20, bottom: 0 }}>
+              <LineChart data={data.trendData} margin={{ top: 0, right: 10, left: -20, bottom: trendPeriod === '12m' ? 10 : 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" />
-                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                <XAxis
+                  dataKey="name"
+                  tick={trendPeriod === '12m'
+                    ? { fontSize: 10, angle: -35, textAnchor: 'end' }
+                    : { fontSize: 11 }}
+                  height={trendPeriod === '12m' ? 50 : 30}
+                  interval={trendPeriod === '30d' ? 4 : 0}
+                />
                 <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
                 <Tooltip />
                 <Line
@@ -174,7 +226,7 @@ const AnalyticsPage = () => {
                   dataKey="value"
                   stroke="#6366F1"
                   strokeWidth={2}
-                  dot={{ r: 4, fill: '#6366F1' }}
+                  dot={{ r: trendPeriod === '30d' ? 2 : 4, fill: '#6366F1' }}
                   activeDot={{ r: 6 }}
                 />
               </LineChart>

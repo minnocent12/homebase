@@ -20,7 +20,39 @@ export interface CreateUserPayload { fullName: string; email: string; password: 
 export interface Page<T> { content: T[]; totalElements: number; totalPages: number; number: number; size: number; first: boolean; last: boolean; }
 export interface DashboardSummary { open: number; inProgress: number; resolved: number; total: number; }
 
-export interface UserSummary { id: string; fullName: string; email: string; role: string; teamId: string | null; teamName: string | null; teamCategory: string | null; createdAt: string; }
+export interface UserSummary { id: string; fullName: string; email: string; role: string; teamId: string | null; teamName: string | null; teamCategory: string | null; createdAt: string; active: boolean; }
 export interface Team { id: string; name: string; description: string; category: string | null; members: UserSummary[]; }
 export interface Comment { id: string; requestId: string; userId: string; userName: string; userRole: string; body: string; createdAt: string; }
 export interface StatusHistoryEntry { id: string; oldStatus: string | null; newStatus: string; changedByName: string; changedByRole: string; changedAt: string; }
+
+export interface UpdateUserPayload { fullName?: string; email?: string; role?: string; teamId?: string; }
+
+export interface ChartEntry { name: string; value: number; }
+export interface RecentComment { id: string; body: string; requestTitle: string; requestId: string; createdAt: string; }
+export interface RecentRequest { id: string; title: string; status: string; priority: string; createdAt: string; }
+
+export interface UserProfile {
+  id: string;
+  fullName: string;
+  email: string;
+  role: string;
+  teamId: string | null;
+  teamName: string | null;
+  teamCategory: string | null;
+  createdAt: string;
+  active: boolean;
+  requestsCreated: number;
+  requestsAssigned: number;
+  commentsPosted: number;
+  openCount: number;
+  inProgressCount: number;
+  resolvedCount: number;
+  assignedOpenCount: number;
+  assignedInProgressCount: number;
+  assignedResolvedCount: number;
+  trendData: ChartEntry[];
+  assignedTrendData: ChartEntry[];
+  comments: RecentComment[];
+  submittedRequests: RecentRequest[];
+  assignedRequests: RecentRequest[];
+}

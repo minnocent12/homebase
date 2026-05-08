@@ -44,6 +44,10 @@ public class User implements UserDetails {
     @JoinColumn(name = "team_id")
     private Team team;
 
+    @Builder.Default
+    @Column(nullable = false)
+    private boolean active = true;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
@@ -63,5 +67,5 @@ public class User implements UserDetails {
     @Override public boolean isAccountNonExpired()    { return true; }
     @Override public boolean isAccountNonLocked()     { return true; }
     @Override public boolean isCredentialsNonExpired(){ return true; }
-    @Override public boolean isEnabled()              { return true; }
+    @Override public boolean isEnabled()              { return active; }
 }

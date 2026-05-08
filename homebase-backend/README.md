@@ -56,65 +56,69 @@ src/main/java/com/homebase/
 │   ├── SecurityConfig.java         # Spring Security filter chain, public routes
 │   └── CorsConfig.java             # CORS — allows localhost:5173 in dev
 ├── request/
-│   ├── Request.java                # JPA entity — includes requestNumber (SERIAL),
-│   │                               #   team FK, assignedTo FK
-│   ├── RequestRepository.java      # JPA Specification queries
+│   ├── Request.java                # JPA entity — requestNumber (SERIAL), team FK, assignedTo FK
+│   ├── RequestRepository.java      # JPA Specification + derived queries (countByCreatedBy, countByAssignedTo, findByCreatedBy)
 │   ├── RequestService.java         # Business logic; RBAC enforced per role;
-│   │                               #   auto-routes by category to team on create
+│   │                               #   auto-routes by category; date + assignee filters
 │   ├── RequestController.java      # POST/GET/PUT/DELETE /api/requests
 │   ├── StatusHistoryRepository.java
 │   └── dto/
 │       ├── CreateRequestDto.java
 │       ├── UpdateRequestDto.java
-│       ├── RequestResponseDto.java # Includes requestNumber, teamId, teamName,
-│       │                           #   assignedToId, assignedToName
-│       └── RequestSummaryDto.java
+│       ├── RequestResponseDto.java # requestNumber, teamId, teamName, assignedToId, assignedToName
+│       └── StatusHistoryResponseDto.java
 ├── comment/
 │   ├── Comment.java
-│   ├── CommentRepository.java
+│   ├── CommentRepository.java      # findByRequestId, countByRequestId,
+│   │                               #   findTop5ByUser (@EntityGraph eagerly fetches request),
+│   │                               #   countByUser
 │   ├── CommentService.java
 │   ├── CommentController.java      # POST/GET /api/requests/{id}/comments
 │   └── dto/
-│       ├── CreateCommentDto.java   # body (max 1000 chars)
-│       └── CommentResponseDto.java # id, requestId, userId, userName, userRole, body, createdAt
+│       ├── CreateCommentDto.java
+│       └── CommentResponseDto.java
 ├── analytics/
-│   ├── AnalyticsController.java    # GET /api/analytics/summary (MANAGER/ADMIN only)
-│   └── AnalyticsService.java       # byCategory, byStatus, byPriority, last7DaysTrend, avgResolutionHours
+│   ├── AnalyticsController.java    # GET /api/analytics/summary (MANAGER/ADMIN)
+│   └── AnalyticsService.java       # byCategory, byStatus, byPriority, last7DaysTrend,
+│                                   #   avgResolutionHours; scoped to MANAGER's team
 ├── team/
-│   ├── Team.java                   # JPA entity — id, name, description, category (nullable), members
-│   ├── TeamRepository.java         # findByCategory(category) used for auto-routing
-│   ├── TeamService.java            # getAll, addMember, removeMember
-│   ├── TeamController.java         # GET/POST/DELETE /api/teams
+│   ├── Team.java                   # JPA entity — id, name, description, category (nullable)
+│   ├── TeamRepository.java         # findByCategory() used for auto-routing
+│   ├── TeamController.java         # GET /api/teams, PATCH /api/users/{id}/team
 │   └── dto/
-│       └── TeamResponseDto.java    # id, name, description, category, members list
+│       └── TeamResponseDto.java
 └── user/
     ├── User.java                   # JPA entity — id, fullName, email, passwordHash,
-    │                               #   role, team (FK), createdAt
-    ├── UserRepository.java
+    │                               #   role, team (FK), active (boolean, default true), createdAt
+    ├── UserRepository.java         # findByEmail, existsByEmail, findByTeam
     ├── UserRole.java               # ASSOCIATE, TECHNICIAN, MANAGER, ADMIN
-    ├── UserService.java            # getAll (scoped by role), create (RBAC enforced)
-    ├── UserController.java         # GET/POST /api/users
+    ├── UserController.java         # Full CRUD + profile endpoint
     └── dto/
         ├── CreateUserDto.java      # fullName, email, password, role, teamId
-        └── UserResponseDto.java    # id, fullName, email, role, teamId, teamName,
-                                    #   teamCategory, createdAt
+        ├── UpdateUserDto.java      # fullName, email, role, teamId (null=no change, ""=clear)
+        ├── UserResponseDto.java    # id, fullName, email, role, teamId, teamName,
+        │                           #   teamCategory, createdAt, active
+        └── UserProfileDto.java     # All UserResponseDto fields + stats + chart data +
+                                    #   recentSubmittedRequests + recentAssignedRequests +
+                                    #   recentComments
 
 src/main/resources/
-├── application.yaml                # Base config + dev/prod profiles
+├── application.yaml                # Base config + dev/prod profiles; open-in-view: false
 └── db/migration/
     ├── V1__init_schema.sql
     ├── V2__add_comments.sql
     ├── V3__add_notifications.sql
-    ├── V4__convert_role_to_varchar.sql
-    ├── V5__placeholder.sql
-    ├── V6__restore_request_enums_as_varchar.sql
-    ├── V7__add_refresh_tokens.sql
+    ├── V4__fix_role_column.sql
+    ├── V5__fix_request_columns.sql
+    ├── V6__restore_request_columns.sql
+    ├── V7__add_status_history_columns.sql
     ├── V8__add_request_number.sql
     ├── V9__create_teams.sql
-    ├── V10__add_team_id_to_users.sql
-    ├── V11__add_team_id_to_requests.sql
-    ├── V12__nullable_team_category.sql
-    └── V13__add_admin_team.sql
+    ├── V10__add_team_to_users.sql
+    ├── V11__add_team_to_requests.sql
+    ├── V12__add_store_associates_team.sql
+    ├── V13__add_admin_team.sql
+    └── V14__add_active_column.sql
 ```
 
 ---
@@ -125,78 +129,101 @@ src/main/resources/
 
 | Method | Endpoint | Body | Response |
 |---|---|---|---|
-| POST | `/api/auth/register` | `fullName`, `email`, `password`, `role` | `accessToken`, `refreshToken`, user info |
-| POST | `/api/auth/login` | `email`, `password` | `accessToken`, `refreshToken`, user info |
-| POST | `/api/auth/refresh` | `refreshToken` | new `accessToken`, `refreshToken`, user info |
+| POST | `/api/auth/register` | `fullName`, `email`, `password`, `role` | tokens + user info |
+| POST | `/api/auth/login` | `email`, `password` | tokens + user info |
+| POST | `/api/auth/refresh` | `refreshToken` | new tokens + user info |
 
-### Requests — Requires `Authorization: Bearer <token>`
-
-| Method | Endpoint | Description | RBAC |
-|---|---|---|---|
-| POST | `/api/requests` | Create a new request (auto-routes to team by category) | Any role |
-| GET | `/api/requests` | List requests (paginated, filtered) | Scoped by role |
-| GET | `/api/requests/{id}` | Get a single request | Scoped by role |
-| PUT | `/api/requests/{id}` | Update status, assignment, priority | MANAGER / ADMIN / TECHNICIAN (limited) |
-| DELETE | `/api/requests/{id}` | Permanently delete a request | ADMIN only |
-| GET | `/api/requests/summary` | Returns `{ open, inProgress, resolved, total }` | Scoped by role |
-| GET | `/api/requests/{id}/status-history` | Status change log | Any role |
-
-**TECHNICIAN update rules (enforced in `RequestService`):**
-- Can set `assignedToId` only to their own UUID (self-assign)
-- Can update `status` only when the request is assigned to them
-
-### Comments — Requires `Authorization: Bearer <token>`
+### Requests
 
 | Method | Endpoint | Description | RBAC |
 |---|---|---|---|
-| POST | `/api/requests/{id}/comments` | Add a comment to a request | Any role |
-| GET | `/api/requests/{id}/comments` | Fetch comments in chronological order | Any role |
+| POST | `/api/requests` | Create (auto-routes to team by category) | Any role |
+| GET | `/api/requests` | List (paginated, filtered, role-scoped) | Any role |
+| GET | `/api/requests/{id}` | Get single request | Scoped by role |
+| PUT | `/api/requests/{id}` | Update status / assignment / priority | MANAGER / ADMIN / TECHNICIAN (limited) |
+| DELETE | `/api/requests/{id}` | Delete | ADMIN only |
+| GET | `/api/requests/summary` | `{ open, inProgress, resolved, total }` | Any role (scoped) |
+| GET | `/api/requests/{id}/history` | Status change log | Required |
 
-### Analytics — Requires `Authorization: Bearer <token>`
+**Query parameters for `GET /api/requests`:**
+
+| Parameter | Description |
+|---|---|
+| `status` | `OPEN` \| `IN_PROGRESS` \| `RESOLVED` |
+| `priority` | `LOW` \| `MEDIUM` \| `HIGH` \| `CRITICAL` |
+| `category` | `IT` \| `HR` \| `FACILITIES` \| `SUPPLY` \| `OTHER` |
+| `keyword` | Search in title and description |
+| `assignedToId` | Filter by assignee UUID; `__unassigned__` for unassigned |
+| `dateFrom` | ISO date (inclusive lower bound on `createdAt`) |
+| `dateTo` | ISO date (inclusive upper bound on `createdAt`) |
+| `page` | 0-based page number |
+| `size` | Page size (default 10) |
+| `sortBy` / `sortDir` | Sort field and direction |
+
+**Technician update rules:**
+- Can set `assignedToId` only to their own UUID (self-assign / pick up)
+- Can update `status` only when already assigned to them (or picking up in the same call)
+- Cannot edit `title`, `description`, `priority`, or `category`
+
+### Comments
+
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/api/requests/{id}/comments` | Add a comment |
+| GET | `/api/requests/{id}/comments` | Fetch comments in chronological order |
+
+### Analytics
 
 | Method | Endpoint | Description | RBAC |
 |---|---|---|---|
-| GET | `/api/analytics/summary` | Category, status, priority breakdowns + 7-day trend + avg resolution hours | MANAGER / ADMIN |
+| GET | `/api/analytics/summary` | Category, status, priority breakdowns + 7-day trend + avg resolution hours; scoped to MANAGER's team | MANAGER / ADMIN |
 
-**Analytics response shape:**
+### Users
+
+| Method | Endpoint | Description | RBAC |
+|---|---|---|---|
+| GET | `/api/users` | List — Admins see all; Managers see own team | MANAGER / ADMIN |
+| POST | `/api/users` | Create — Admins choose any role + team; Managers create Associates in their team | MANAGER / ADMIN |
+| GET | `/api/users/{id}` | Full profile: identity + stats + chart data + recent requests + recent comments | MANAGER / ADMIN |
+| PUT | `/api/users/{id}` | Update name, email, role, team | ADMIN only |
+| PATCH | `/api/users/{id}/active` | `{ "active": true/false }` — enable or disable account | ADMIN only |
+| PATCH | `/api/users/{id}/team` | Assign or clear team | ADMIN only |
+| DELETE | `/api/users/{id}` | Delete user; returns 409 if user has associated records | ADMIN only |
+
+**User profile response (`GET /api/users/{id}`):**
 ```json
 {
-  "totalRequests": 19,
-  "byCategory": [{ "label": "IT", "count": 7 }, ...],
-  "byStatus":   [{ "label": "OPEN", "count": 16 }, ...],
-  "byPriority": [{ "label": "CRITICAL", "count": 5 }, ...],
-  "last7DaysTrend": [{ "label": "Apr 25", "count": 0 }, ...],
-  "avgResolutionHours": 2.4
+  "id": "...",
+  "fullName": "Jane Smith",
+  "email": "jane@example.com",
+  "role": "TECHNICIAN",
+  "teamId": "...",
+  "teamName": "IT Support Team",
+  "teamCategory": "IT",
+  "createdAt": "2026-05-06T00:00:00Z",
+  "active": true,
+  "requestsCreated": 3,
+  "requestsAssigned": 7,
+  "commentsPosted": 12,
+  "openCount": 1,
+  "inProgressCount": 1,
+  "resolvedCount": 1,
+  "assignedOpenCount": 2,
+  "assignedInProgressCount": 3,
+  "assignedResolvedCount": 2,
+  "last7DaysTrend": [{ "name": "May 1", "value": 0 }, ...],
+  "last7DaysAssignedTrend": [{ "name": "May 1", "value": 1 }, ...],
+  "recentSubmittedRequests": [...],
+  "recentAssignedRequests": [...],
+  "recentComments": [...]
 }
 ```
 
-### Users — Requires `Authorization: Bearer <token>`
-
-| Method | Endpoint | Description | RBAC |
-|---|---|---|---|
-| GET | `/api/users` | List users — Admins see all; Managers see own team members only | MANAGER / ADMIN |
-| POST | `/api/users` | Create a user — Admins choose any role + team; Managers create Associates in their team | MANAGER / ADMIN |
-
-### Teams — Requires `Authorization: Bearer <token>`
+### Teams
 
 | Method | Endpoint | Description | RBAC |
 |---|---|---|---|
 | GET | `/api/teams` | List all teams with member lists | ADMIN |
-| POST | `/api/teams/{teamId}/members/{userId}` | Add a user to a team | ADMIN |
-| DELETE | `/api/teams/{teamId}/members/{userId}` | Remove a user from a team | ADMIN |
-
-### Query Parameters — `GET /api/requests`
-
-| Parameter | Type | Description |
-|---|---|---|
-| `status` | enum | `OPEN` \| `IN_PROGRESS` \| `RESOLVED` |
-| `priority` | enum | `LOW` \| `MEDIUM` \| `HIGH` \| `CRITICAL` |
-| `category` | enum | `IT` \| `HR` \| `FACILITIES` \| `SUPPLY` \| `OTHER` |
-| `keyword` | string | Full-text search in title and description |
-| `page` | int | Page number, 0-based (default: `0`) |
-| `size` | int | Page size (default: `10`) |
-| `sortBy` | string | Sort field — `createdAt`, `priority`, `status` |
-| `sortDir` | string | `asc` \| `desc` |
 
 ---
 
@@ -205,34 +232,38 @@ src/main/resources/
 | Action | ASSOCIATE | TECHNICIAN | MANAGER | ADMIN |
 |---|---|---|---|---|
 | Create request | Yes | Yes | Yes | Yes |
-| View requests | Own only | Team + assigned + own | All | All |
+| View requests | Own only | Team + assigned + own | Own team | All |
 | Update request status | No | Own assigned only | Yes | Yes |
-| Self-assign a request | No | Yes (unassigned team requests) | No | No |
+| Self-assign a request | No | Yes (unassigned team) | No | No |
 | Assign to another user | No | No | Yes | Yes |
 | Delete request | No | No | No | Yes |
 | Add / view comments | Yes | Yes | Yes | Yes |
-| View analytics | No | No | Yes | Yes |
-| Manage users | No | No | Own team Associates | All roles |
+| View analytics | No | No | Own team | All |
+| View user profiles | No | No | Own team | All |
+| Create users | No | No | Associates (own team) | All roles |
+| Update / disable users | No | No | No | Yes |
+| Delete users | No | No | No | Yes (no records only) |
 | Manage teams | No | No | No | Yes |
 
 ---
 
 ## Database Schema
 
-PostgreSQL 17+ — Flyway manages all migrations.
-
 ### `users`
+
 | Column | Type | Notes |
 |---|---|---|
 | `id` | UUID | Primary key |
 | `full_name` | VARCHAR | |
-| `email` | VARCHAR | Unique, indexed |
+| `email` | VARCHAR | Unique |
 | `password_hash` | VARCHAR | bcrypt |
 | `role` | VARCHAR | `ASSOCIATE`, `TECHNICIAN`, `MANAGER`, `ADMIN` |
-| `team_id` | UUID | FK → `teams.id`, nullable; `SET NULL` on team delete |
-| `created_at` | TIMESTAMP | |
+| `team_id` | UUID | FK → `teams.id`, nullable |
+| `active` | BOOLEAN | Default `true`; `false` prevents login |
+| `created_at` | TIMESTAMPTZ | Set on insert |
 
 ### `teams`
+
 | Column | Type | Notes |
 |---|---|---|
 | `id` | UUID | Primary key |
@@ -241,10 +272,11 @@ PostgreSQL 17+ — Flyway manages all migrations.
 | `category` | VARCHAR | `IT`, `HR`, `FACILITIES`, `SUPPLY`, `OTHER`; nullable for org-only teams |
 
 ### `requests`
+
 | Column | Type | Notes |
 |---|---|---|
 | `id` | UUID | Primary key |
-| `request_number` | SERIAL | Auto-incrementing human-readable ID (REQ-1, REQ-2…) |
+| `request_number` | SERIAL | Human-readable ID (REQ-1, REQ-2…) |
 | `title` | VARCHAR | |
 | `description` | TEXT | |
 | `status` | VARCHAR | `OPEN`, `IN_PROGRESS`, `RESOLVED` |
@@ -252,20 +284,22 @@ PostgreSQL 17+ — Flyway manages all migrations.
 | `category` | VARCHAR | `IT`, `HR`, `FACILITIES`, `SUPPLY`, `OTHER` |
 | `created_by` | UUID | FK → `users.id` |
 | `assigned_to` | UUID | FK → `users.id`, nullable |
-| `team_id` | UUID | FK → `teams.id`, nullable; set on create by auto-routing |
-| `created_at` | TIMESTAMP | |
-| `updated_at` | TIMESTAMP | Auto-updated by DB trigger |
+| `team_id` | UUID | FK → `teams.id`, nullable |
+| `created_at` | TIMESTAMPTZ | |
+| `updated_at` | TIMESTAMPTZ | Auto-updated |
 
 ### `comments`
+
 | Column | Type | Notes |
 |---|---|---|
 | `id` | UUID | Primary key |
 | `request_id` | UUID | FK → `requests.id` |
 | `user_id` | UUID | FK → `users.id` |
-| `body` | TEXT | Max 1000 chars |
-| `created_at` | TIMESTAMP | Immutable — set on insert |
+| `body` | TEXT | |
+| `created_at` | TIMESTAMPTZ | Immutable |
 
 ### `status_history`
+
 | Column | Type | Notes |
 |---|---|---|
 | `id` | UUID | Primary key |
@@ -273,7 +307,7 @@ PostgreSQL 17+ — Flyway manages all migrations.
 | `changed_by` | UUID | FK → `users.id` |
 | `old_status` | VARCHAR | Null on initial creation |
 | `new_status` | VARCHAR | |
-| `changed_at` | TIMESTAMP | |
+| `changed_at` | TIMESTAMPTZ | |
 
 ### Migrations
 
@@ -282,9 +316,7 @@ PostgreSQL 17+ — Flyway manages all migrations.
 | V1 | Initial schema — `users`, `requests`, `status_history` |
 | V2 | Add `comments` table |
 | V3 | Add `notifications` table |
-| V4 | Convert `role` column to VARCHAR |
-| V5 | Placeholder |
-| V6 | Restore request enum columns as VARCHAR |
+| V4–V6 | Column type fixes |
 | V7 | Add `refresh_tokens` table |
 | V8 | Add `request_number` SERIAL to `requests` |
 | V9 | Create `teams` table + seed IT, Facilities, HR, Supply, General Ops |
@@ -292,6 +324,7 @@ PostgreSQL 17+ — Flyway manages all migrations.
 | V11 | Add `team_id` FK to `requests`; back-fill from category |
 | V12 | Make `teams.category` nullable; add Store Associates team |
 | V13 | Add Admin team |
+| V14 | Add `active` BOOLEAN to `users` (default `true`) |
 
 ---
 
@@ -299,19 +332,19 @@ PostgreSQL 17+ — Flyway manages all migrations.
 
 - **JWT access tokens** — 15-minute expiry, validated on every request via `JwtAuthFilter`
 - **JWT refresh tokens** — 7-day expiry, exchanged via `POST /api/auth/refresh`
-- **Passwords** — hashed with bcrypt via Spring Security's `PasswordEncoder`
-- **Public routes** — `/api/auth/register`, `/api/auth/login`, and `/api/auth/refresh` are unauthenticated; all others require a valid Bearer token
-- **RBAC** — `RequestService` enforces role checks at the service layer; `@PreAuthorize` annotations guard update (MANAGER/ADMIN/TECHNICIAN), delete (ADMIN), and user-create (MANAGER/ADMIN) endpoints
-- **TECHNICIAN isolation** — view scope limited to: requests created by them, assigned to them, or in their team; assignment update restricted to self-assign only
-- **CORS** — `localhost:5173` allowed in dev profile; in Docker and AWS the frontend nginx proxy forwards `/api/` requests to the backend, so browser requests always originate from the same origin
+- **Passwords** — hashed with bcrypt
+- **Public routes** — `/api/auth/**` only; all others require a valid Bearer token
+- **RBAC** — role checks enforced at the service layer; `@PreAuthorize` guards admin/manager-only endpoints
+- **Disabled accounts** — `User.isEnabled()` returns the `active` field; Spring Security blocks login for disabled users
+- **TECHNICIAN isolation** — view scope: created by / assigned to / in their team; update restricted to self-assign only
+- **MANAGER scoping** — requests, dashboard summary, and analytics are all filtered to the manager's team
+- **open-in-view: false** — JPA session is closed after repository calls; `@EntityGraph` used where lazy associations are needed in the controller layer
 
 ---
 
 ## Setup
 
-### Option 1 — Docker (recommended)
-
-Runs the full stack (PostgreSQL + backend + frontend) with one command from the repo root. Requires Docker Desktop.
+### Option 1 — Docker
 
 ```bash
 docker-compose up --build
@@ -319,40 +352,14 @@ docker-compose up --build
 
 API available at `http://localhost/api`
 
-The backend image uses a multi-stage Dockerfile: Maven builds the fat JAR in a `maven:3.9-eclipse-temurin-17` stage, then the JAR is copied into a minimal `eclipse-temurin:17-jre-alpine` runtime image.
-
 ### Option 2 — Local development
-
-#### Prerequisites
-- Java 17+
-- Maven 3.9+
-- PostgreSQL 17+ running locally
-
-#### 1. Create the database
 
 ```bash
 psql -U postgres -c "CREATE DATABASE homebase_dev;"
+cd homebase-backend && ./mvnw spring-boot:run
 ```
 
-#### 2. Run the application
-
-```powershell
-# Windows — from the repo root
-.\run-backend.ps1
-```
-
-```bash
-# macOS / Linux
-cd homebase-backend && ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
-```
-
-API is available at `http://localhost:8080`. Flyway runs migrations automatically on startup.
-
-### Running tests
-
-```bash
-./mvnw test
-```
+Flyway runs migrations automatically on startup. API available at `http://localhost:8080`.
 
 ---
 
@@ -360,22 +367,10 @@ API is available at `http://localhost:8080`. Flyway runs migrations automaticall
 
 | Variable | Description | Required |
 |---|---|---|
-| `JWT_SECRET` | Signing key for JWT tokens — minimum 32 characters | Production only (dev has a built-in default) |
-| `DATABASE_URL` | PostgreSQL JDBC URL (e.g. `jdbc:postgresql://host:5432/db`) | Production |
-| `DATABASE_USER` | Database username | Production |
-| `DATABASE_PASSWORD` | Database password | Production |
-
-> Dev profile uses `localhost:5432/homebase_dev` with hardcoded credentials and a built-in JWT secret — no env vars needed locally. Production reads all values from environment variables only.
-
----
-
-## Configuration Profiles
-
-| Profile | When used | DB config |
-|---|---|---|
-| `dev` (default) | Local development | `localhost:5432/homebase_dev` |
-| `prod` | Docker Compose + AWS ECS | Reads `DATABASE_URL`, `DATABASE_USER`, `DATABASE_PASSWORD` from env |
-| `test` | CI test runs | Isolated test database (injected by GitHub Actions) |
+| `JWT_SECRET` | Signing key — minimum 32 characters | Production only |
+| `DATABASE_URL` | PostgreSQL JDBC URL | Production only |
+| `DATABASE_USER` | Database username | Production only |
+| `DATABASE_PASSWORD` | Database password | Production only |
 
 ---
 

@@ -16,7 +16,7 @@ React + TypeScript SPA for the HomeBase Store Support Center Portal.
 
 ## Overview
 
-The frontend is a single-page application built with React 19, TypeScript, Vite, and Tailwind CSS. It communicates with the Spring Boot backend via relative `/api/` paths — proxied to the backend by nginx (Docker/AWS) or Vite's dev proxy (local). Auth state (including the user's role and team) is managed globally with React Context + localStorage.
+The frontend is a single-page application built with React 19, TypeScript, Vite, and Tailwind CSS. It communicates with the Spring Boot backend via relative `/api/` paths — proxied to the backend by nginx (Docker/AWS) or Vite's dev proxy (local). Auth state (including the user's role, teamId, and teamName) is managed globally with React Context + localStorage.
 
 ---
 
@@ -44,7 +44,7 @@ The frontend is a single-page application built with React 19, TypeScript, Vite,
 | TypeScript | Type safety | ~6.0 |
 | Vite | Build tool and dev server | 8.x |
 | Tailwind CSS | Utility-first styling | 4.x |
-| Recharts | Charts (bar, pie, line) | 3.x |
+| Recharts | Charts (bar, pie, line, area) | 3.x |
 | Axios | HTTP client | 1.7 |
 | React Router | Client-side routing | v7 |
 
@@ -54,14 +54,15 @@ The frontend is a single-page application built with React 19, TypeScript, Vite,
 
 | Route | Page | Description | Access |
 |---|---|---|---|
-| `/login` | `LoginPage` | Email + password sign-in form | Public |
+| `/login` | `LoginPage` | Email + password sign-in | Public |
 | `/dashboard` | `DashboardPage` | Summary cards (Open / In Progress / Resolved / Total) + recent requests | All roles |
-| `/requests` | `RequestListPage` | Paginated request table; keyword, status, priority filters; TECHNICIAN gets a three-tab work queue | All roles |
-| `/requests/:id` | `RequestDetailPage` | Full request view — metadata, badges, threaded activity timeline (status changes + comments merged chronologically) | All roles |
-| `/requests/new` | `CreateRequestPage` | Form to submit a new request — title, description, priority, category | All roles |
-| `/analytics` | `AnalyticsPage` | Bar/pie/line charts — category, status, priority, 7-day trend, avg resolution time | MANAGER / ADMIN only |
-| `/users` | `UserManagementPage` | User table with search, role, and team filters; create user modal | MANAGER / ADMIN only |
-| `/admin/teams` | `TeamManagementPage` | Team cards showing members; add/remove member controls; unassigned users panel | ADMIN only |
+| `/requests` | `RequestListPage` | Paginated request table with keyword, status, priority, date-range, and assignee filters; TECHNICIAN gets a three-tab work queue | All roles |
+| `/requests/:id` | `RequestDetailPage` | Full request view — metadata, badges, merged activity timeline (status changes + comments) | All roles |
+| `/requests/new` | `CreateRequestPage` | Form to submit a new request | All roles |
+| `/analytics` | `AnalyticsPage` | Bar/pie/line charts — category, status, priority, 7-day trend, avg resolution time; scoped to MANAGER's team | MANAGER / ADMIN |
+| `/users` | `UserManagementPage` | User table with search, role, and team filters; create user modal; enable/disable and delete actions; user names link to profile pages | MANAGER / ADMIN |
+| `/users/:id` | `UserProfilePage` | Full user profile — identity card, 4 stat cards, grouped activity bar chart, 7-day dual-line trend, three-tab activity (Submissions / Assigned Work / Comments); edit, disable, delete actions for ADMIN | MANAGER / ADMIN |
+| `/admin/teams` | `TeamManagementPage` | Team cards showing members; add/remove controls; unassigned users panel; team names link to filtered Users page | ADMIN only |
 
 ---
 
@@ -69,10 +70,11 @@ The frontend is a single-page application built with React 19, TypeScript, Vite,
 
 | Component | Description |
 |---|---|
-| `Navbar` | Top nav — role-aware links: Dashboard, Requests, New Request always visible; Analytics + Users for MANAGER/ADMIN; Teams for ADMIN only; color-coded role badge (red=ADMIN, purple=MANAGER, teal=TECHNICIAN, blue=ASSOCIATE); Logout |
+| `Navbar` | Role-aware nav — Dashboard, Requests, New Request always visible; Analytics + Users for MANAGER/ADMIN; Teams for ADMIN; color-coded role badge; Logout |
 | `SummaryCard` | Dashboard stat card — label + count with color-coded border |
 | `PriorityBadge` | Colored pill badge for CRITICAL / HIGH / MEDIUM / LOW |
-| `RequestRow` | Table row — MANAGER/ADMIN: status + assignee dropdowns; TECHNICIAN: "Pick up" button (unassigned, not own) or teal status dropdown (assigned to me) or "Assigned" read-only; ASSOCIATE: "View only" |
+| `RequestRow` | Table row — MANAGER/ADMIN: status + assignee dropdowns; TECHNICIAN: "Pick up" button or status dropdown; ASSOCIATE: read-only |
+| `SessionWarningBanner` | Inactivity warning — appears 30 seconds before automatic logout; "Stay logged in" triggers a silent token refresh |
 
 ---
 
@@ -82,11 +84,45 @@ When a TECHNICIAN visits `/requests`, the standard filter bar is replaced by a t
 
 | Tab | What it shows |
 |---|---|
-| **Team Queue** | Unassigned requests in the technician's team that they did not create — available to pick up |
+| **Team Queue** | Unassigned requests in the technician's team that they did not create |
 | **My Work** | Requests currently assigned to the technician |
 | **My Submissions** | Requests the technician created themselves |
 
-Each tab shows a live count badge. The category filter is hidden for technicians (their team already scopes the category). Clicking "Pick up" on a Team Queue request self-assigns it and moves it to My Work.
+- Each tab shows a live count badge
+- Category filter hidden (team already scopes the category)
+- Switching tabs resets all active filters
+- "Pick up" self-assigns a Team Queue request and moves it to My Work
+
+---
+
+## User Profile Page
+
+`/users/:id` shows a complete picture of any user's activity in the system.
+
+**Profile header** — avatar, name, role + active/inactive badge, team, email, join date. Edit / Disable / Enable / Delete actions for ADMIN.
+
+**Stat cards:**
+| Card | Description |
+|---|---|
+| Requests Submitted | Total requests created by this user |
+| Requests Assigned | Total requests assigned to this user (hidden for ASSOCIATE) |
+| Comments Posted | Total comments posted |
+| Resolved Rate | % of submitted requests that are resolved |
+
+**Charts:**
+| Chart | Description |
+|---|---|
+| Activity Breakdown | Grouped BarChart — Submitted vs Assigned, broken down by Open / In Progress / Resolved |
+| Activity Last 7 Days | Dual-line LineChart — Submitted and Assigned requests per day |
+
+Both the "Assigned" bar and "Assigned" line are hidden for ASSOCIATE profiles since associates cannot be assigned requests.
+
+**Activity tabs:**
+| Tab | Description |
+|---|---|
+| Submissions | 5 most recent requests this user submitted |
+| Assigned Work | 5 most recent requests assigned to this user (hidden for ASSOCIATE) |
+| Comments | 5 most recent comments this user posted |
 
 ---
 
@@ -100,29 +136,35 @@ src/
 │   │                     #   deleteRequest, getSummary, getStatusHistory
 │   ├── comments.ts       # getComments(requestId), addComment(requestId, body)
 │   ├── analytics.ts      # getAnalyticsSummary()
-│   ├── users.ts          # getUsers(), createUser(payload)
-│   └── teams.ts          # getTeams(), addMember(teamId, userId), removeMember(teamId, userId)
+│   ├── users.ts          # getUsers, getUserProfile, createUser, updateUser,
+│   │                     #   toggleUserActive, deleteUser, assignUserToTeam
+│   └── teams.ts          # getTeams()
 ├── components/
-│   ├── Navbar.tsx         # Role-aware nav with colored role badge
+│   ├── Navbar.tsx
 │   ├── PriorityBadge.tsx
 │   ├── SummaryCard.tsx
-│   └── RequestRow.tsx     # RBAC-conditional action cell — full details in Components above
+│   ├── RequestRow.tsx
+│   └── SessionWarningBanner.tsx
 ├── context/
-│   └── AuthContext.tsx    # Global auth state — user (includes teamId, teamName), login(), logout(), refreshSession()
+│   └── AuthContext.tsx    # user (id, fullName, email, role, teamId, teamName),
+│                          #   login(), logout(), refreshSession(), isAuthenticated
+├── hooks/
+│   └── useInactivityTimer.ts  # 15-min inactivity timer; fires callback on timeout
 ├── pages/
 │   ├── LoginPage.tsx
 │   ├── DashboardPage.tsx
-│   ├── RequestListPage.tsx        # Three-tab view for TECHNICIAN; standard filters for others
+│   ├── RequestListPage.tsx        # Three-tab TECHNICIAN view; server-side filters for others
 │   ├── RequestDetailPage.tsx      # Metadata + merged activity timeline + add comment
 │   ├── CreateRequestPage.tsx
-│   ├── AnalyticsPage.tsx          # Recharts; MANAGER/ADMIN only
-│   ├── UserManagementPage.tsx     # User table + CreateUserModal; MANAGER/ADMIN
+│   ├── AnalyticsPage.tsx          # Recharts; MANAGER/ADMIN; scoped to manager's team
+│   ├── UserManagementPage.tsx     # User table + CreateUserModal; enable/disable; delete
+│   ├── UserProfilePage.tsx        # Full profile + charts + activity tabs; EditUserModal
 │   └── TeamManagementPage.tsx     # Team cards + member management; ADMIN only
-├── types/
-│   └── index.ts           # AuthResponse, Request, UserSummary, Team, Comment,
-│                          #   StatusHistoryEntry, DashboardSummary, Page<T>, etc.
-├── App.tsx                # Route definitions with protected route guard
-└── main.tsx               # App entry point
+└── types/
+    └── index.ts           # AuthResponse, Request, UserSummary, UserProfile, Team,
+                           #   Comment, StatusHistoryEntry, DashboardSummary, Page<T>,
+                           #   ChartEntry, RecentComment, RecentRequest,
+                           #   CreateUserPayload, UpdateUserPayload, etc.
 ```
 
 ---
@@ -131,12 +173,11 @@ src/
 
 1. User submits email + password on `/login`
 2. `AuthContext.login()` calls `POST /api/auth/login`
-3. On success, `accessToken`, `refreshToken`, and full user info (including `teamId`, `teamName`, `role`) are stored in `localStorage`
-4. Axios interceptor reads the token from `localStorage` and injects `Authorization: Bearer <token>` on every request
-5. `App.tsx` wraps protected routes in a guard that redirects unauthenticated users to `/login`
-6. Role-gated pages (`AnalyticsPage`, `UserManagementPage`, `TeamManagementPage`) additionally check `user.role` and redirect unauthorized users to `/dashboard`
-7. `AuthContext.refreshSession()` silently exchanges the stored refresh token for a new access token on 401 responses
-8. `AuthContext.logout()` clears `localStorage` and redirects to `/login`
+3. On success, `accessToken`, `refreshToken`, and full user info (`role`, `teamId`, `teamName`) are stored in `localStorage`
+4. Axios interceptor reads the token and injects `Authorization: Bearer <token>` on every request
+5. Protected routes redirect unauthenticated users to `/login`
+6. An inactivity timer fires after 15 minutes of no input; a 30-second warning banner gives the user a chance to stay logged in via a silent token refresh
+7. `AuthContext.logout()` clears `localStorage` and redirects to `/login`
 
 ---
 
@@ -147,55 +188,56 @@ src/
 | Analytics nav link | Hidden | Hidden | Visible | Visible |
 | Users nav link | Hidden | Hidden | Visible | Visible |
 | Teams nav link | Hidden | Hidden | Hidden | Visible |
-| Request list view | Own requests | Team + assigned + own (3 tabs) | All requests | All requests |
+| Request list view | Own requests | Three-tab work queue | All (team-scoped) | All |
 | Category filter | Visible | Hidden | Visible | Visible |
-| Status update | "View only" | Own assigned (teal dropdown) | Full dropdown | Full dropdown |
-| Pick up button | No | Yes (unassigned team requests) | No | No |
+| Assignee filter | Hidden | Hidden | Visible | Visible |
+| Date range filter | Visible | Visible | Visible | Visible |
+| Status update | Read-only | Own assigned | Full dropdown | Full dropdown |
+| Pick up button | No | Yes (unassigned team) | No | No |
 | Assign dropdown | No | No | Yes | Yes |
 | User management page | Blocked | Blocked | Own team Associates | All users |
+| User profile page | Blocked | Blocked | Own team members | All users |
+| Edit / disable / delete user | No | No | No | Yes |
 | Team management page | Blocked | Blocked | Blocked | Full access |
-| Role badge color | Blue | Teal | Purple | Red |
+| Profile — Assigned stat card | Hidden | Visible | Visible | Visible |
+| Profile — Assigned Work tab | Hidden | Visible | Visible | Visible |
 
 ---
 
 ## Setup
 
-### Option 1 — Docker (recommended)
+### Option 1 — Docker
 
-From the repo root — runs PostgreSQL, backend, and frontend together:
+From the repo root:
 
 ```bash
 docker-compose up --build
 ```
 
-App available at `http://localhost`. The frontend image uses a multi-stage Dockerfile: Node builds the Vite bundle in a `node:20-alpine` stage, then the static files are served by `nginx:alpine`. The included `nginx.conf` handles SPA routing (`try_files`) and proxies all `/api/` traffic to the backend.
+App available at `http://localhost`. nginx handles SPA routing (`try_files`) and proxies `/api/` to the backend.
 
 ### Option 2 — Local development
 
-#### Prerequisites
-- Node.js 18+
-- Backend API running at `http://localhost:8080`
-
-#### Install and run
+Requires the backend running at `http://localhost:8080`.
 
 ```powershell
-# Windows — from the repo root (installs on first run only)
+# Windows
 .\run-frontend.ps1
 ```
 
 ```bash
 # macOS / Linux
-npm install  # first time only
+npm install
 npm run dev
 ```
 
 App runs at `http://localhost:5173`.
 
-### Other scripts
+### Scripts
 
 | Script | Description |
 |---|---|
-| `npm run dev` | Start development server with HMR |
+| `npm run dev` | Start dev server with HMR |
 | `npm run build` | Production build to `dist/` |
 | `npm run preview` | Preview production build locally |
 | `npm run lint` | Run ESLint |
@@ -204,10 +246,10 @@ App runs at `http://localhost:5173`.
 
 ## Environment
 
-The Axios instance in [src/api/axios.ts](src/api/axios.ts) uses an empty string `''` as `baseURL`, so all API calls use relative paths (e.g. `/api/auth/login`).
+The Axios instance uses `''` as `baseURL` so all calls use relative paths (`/api/...`).
 
-- **Local dev** — Vite's dev server proxies `/api/` to `http://localhost:8080` (configured in `vite.config.ts`)
-- **Docker / AWS** — nginx proxies `/api/` to the backend container (Docker Compose: `backend:8080`; AWS: ALB DNS name via VPC resolver)
+- **Local dev** — Vite proxies `/api/` to `http://localhost:8080` via `vite.config.ts`
+- **Docker / AWS** — nginx proxies `/api/` to the backend container
 
 ---
 

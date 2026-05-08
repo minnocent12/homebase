@@ -305,6 +305,17 @@ public class UserController {
                         r.getCreatedAt()))
                 .toList();
 
+        double avgResolutionHours = assigned.stream()
+                .filter(r -> r.getStatus() == RequestStatus.RESOLVED)
+                .mapToLong(r -> r.getUpdatedAt().toInstant().toEpochMilli()
+                        - r.getCreatedAt().toInstant().toEpochMilli())
+                .average()
+                .stream()
+                .map(ms -> ms / 3_600_000.0)
+                .findFirst()
+                .orElse(0.0);
+        avgResolutionHours = Math.round(avgResolutionHours * 10.0) / 10.0;
+
         return UserProfileDto.builder()
                 .id(target.getId())
                 .fullName(target.getFullName())
@@ -319,6 +330,7 @@ public class UserController {
                 .requestsCreated((long) created.size())
                 .requestsAssigned((long) assigned.size())
                 .commentsPosted(commentRepository.countByUser(target))
+                .avgResolutionHours(avgResolutionHours)
                 .openCount(openCount)
                 .inProgressCount(inProgressCount)
                 .resolvedCount(resolvedCount)

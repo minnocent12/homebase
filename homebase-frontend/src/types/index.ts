@@ -44,6 +44,7 @@ export interface UserProfile {
   requestsCreated: number;
   requestsAssigned: number;
   commentsPosted: number;
+  avgResolutionHours: number;
   openCount: number;
   inProgressCount: number;
   resolvedCount: number;

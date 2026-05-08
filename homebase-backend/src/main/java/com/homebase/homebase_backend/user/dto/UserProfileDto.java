@@ -22,9 +22,10 @@ public class UserProfileDto {
     private OffsetDateTime createdAt;
     private boolean        active;
 
-    private long requestsCreated;
-    private long requestsAssigned;
-    private long commentsPosted;
+    private long   requestsCreated;
+    private long   requestsAssigned;
+    private long   commentsPosted;
+    private double avgResolutionHours;
 
     // Created-request breakdown
     private long openCount;

@@ -451,12 +451,18 @@ const UserProfilePage = () => {
         </div>
 
         {/* Stat cards */}
-        <div className={`grid gap-4 ${isAssociate ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2 md:grid-cols-4'}`}>
+        <div className={`grid gap-4 ${isAssociate ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2 md:grid-cols-5'}`}>
           {[
-            { label: 'Requests Submitted', value: profile.requestsCreated,  accent: 'text-blue-600',   show: true           },
-            { label: 'Requests Assigned',  value: profile.requestsAssigned, accent: 'text-purple-600', show: !isAssociate   },
-            { label: 'Comments Posted',    value: profile.commentsPosted,   accent: 'text-teal-600',   show: true           },
-            { label: 'Resolved Rate',      value: `${resolvedRate}%`,       accent: 'text-green-600',  show: true           },
+            { label: 'Requests Submitted',  value: profile.requestsCreated,  accent: 'text-blue-600',   show: true         },
+            { label: 'Requests Assigned',   value: profile.requestsAssigned, accent: 'text-purple-600', show: !isAssociate },
+            { label: 'Comments Posted',     value: profile.commentsPosted,   accent: 'text-teal-600',   show: true         },
+            { label: 'Resolved Rate',       value: `${resolvedRate}%`,       accent: 'text-green-600',  show: true         },
+            {
+              label: 'Avg Resolution Time',
+              value: profile.avgResolutionHours > 0 ? `${profile.avgResolutionHours}h` : '—',
+              accent: 'text-orange-600',
+              show: !isAssociate,
+            },
           ].filter(c => c.show).map(card => (
             <div key={card.label} className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
               <p className={`text-2xl font-bold ${card.accent}`}>{card.value}</p>

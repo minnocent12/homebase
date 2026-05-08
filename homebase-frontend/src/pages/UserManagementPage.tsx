@@ -251,25 +251,23 @@ const UserManagementPage = () => {
             onChange={e => setSearch(e.target.value)}
             className="flex-1 min-w-48 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
+          <select value={filterRole} onChange={e => setFilterRole(e.target.value)}
+            className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">All Roles</option>
+            {isAdmin && <option value="ADMIN">Admin</option>}
+            {isAdmin && <option value="MANAGER">Manager</option>}
+            <option value="TECHNICIAN">Technician</option>
+            <option value="ASSOCIATE">Associate</option>
+          </select>
           {isAdmin && (
-            <>
-              <select value={filterRole} onChange={e => setFilterRole(e.target.value)}
-                className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="">All Roles</option>
-                <option value="ADMIN">Admin</option>
-                <option value="MANAGER">Manager</option>
-                <option value="TECHNICIAN">Technician</option>
-                <option value="ASSOCIATE">Associate</option>
-              </select>
-              <select value={filterTeam} onChange={e => setFilterTeam(e.target.value)}
-                className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="">All Teams</option>
-                <option value="__none__">No Team</option>
-                {teams.map(t => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
-                ))}
-              </select>
-            </>
+            <select value={filterTeam} onChange={e => setFilterTeam(e.target.value)}
+              className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">All Teams</option>
+              <option value="__none__">No Team</option>
+              {teams.map(t => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
           )}
           <div className="flex items-center gap-2">
             <label className="text-xs text-gray-500 whitespace-nowrap">Joined from</label>
@@ -306,7 +304,7 @@ const UserManagementPage = () => {
           <table className="w-full text-left">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {['Name', 'Email', 'Role', 'Team', isAdmin ? 'Joined' : null, isAdmin ? 'Status' : null, isAdmin ? 'Actions' : null]
+                {['Name', 'Email', 'Role', 'Team', 'Joined', isAdmin ? 'Status' : null, isAdmin ? 'Actions' : null]
                   .filter(Boolean)
                   .map(h => (
                     <th key={h!} className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">
@@ -319,7 +317,7 @@ const UserManagementPage = () => {
               {loading ? (
                 [...Array(5)].map((_, i) => (
                   <tr key={i} className="border-b border-gray-100">
-                    {[...Array(isAdmin ? 7 : 4)].map((_, j) => (
+                    {[...Array(isAdmin ? 7 : 5)].map((_, j) => (
                       <td key={j} className="py-3 px-4">
                         <div className="h-4 bg-gray-100 rounded animate-pulse" />
                       </td>
@@ -328,7 +326,7 @@ const UserManagementPage = () => {
                 ))
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={isAdmin ? 7 : 4} className="py-12 text-center text-gray-400 text-sm">
+                  <td colSpan={isAdmin ? 7 : 5} className="py-12 text-center text-gray-400 text-sm">
                     No users found.
                   </td>
                 </tr>
@@ -372,13 +370,11 @@ const UserManagementPage = () => {
                     </td>
 
                     {/* Joined */}
-                    {isAdmin && (
-                      <td className="py-3 px-4 text-xs text-gray-500">
-                        {new Date(u.createdAt).toLocaleDateString('en-US', {
-                          month: 'short', day: 'numeric', year: 'numeric',
-                        })}
-                      </td>
-                    )}
+                    <td className="py-3 px-4 text-xs text-gray-500">
+                      {new Date(u.createdAt).toLocaleDateString('en-US', {
+                        month: 'short', day: 'numeric', year: 'numeric',
+                      })}
+                    </td>
 
                     {/* Active status */}
                     {isAdmin && (

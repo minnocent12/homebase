@@ -14,7 +14,7 @@ HomeBase lets store associates submit operational requests (IT issues, HR concer
 
 | Environment | URL |
 |---|---|
-| Production (AWS) | http://homebase-alb-2128858486.us-east-2.elb.amazonaws.com |
+| Production (AWS) | Not currently published; deployment architecture is documented below |
 | Local (Docker) | http://localhost |
 | Local (Dev) | http://localhost:5173 |
 
